@@ -1,0 +1,27 @@
+#ifndef BOARD_CONFIG_H
+#define BOARD_CONFIG_H
+
+/**
+ * @file board_config.h
+ * @brief Board configuration - AUTO-GENERATED from CMake
+ *
+ * This header defines hardware capabilities and configuration parameters
+ * for the selected board. Do not edit manually.
+ */
+
+/* === Peripheral Counts === */
+#define BOARD_UART_COUNT    @BOARD_UART_COUNT@
+#define BOARD_SPI_COUNT     @BOARD_SPI_COUNT@
+#define BOARD_DMA           @BOARD_DMA@
+
+/* === UART Configuration === */
+#define BOARD_UART1         @BOARD_UART1@
+
+/* === SPI Configuration === */
+#define BOARD_SPI1          @BOARD_SPI1@
+
+#define BOARD_TIM2        @BOARD_TIM2@
+#define BOARD_TIMER_COUNT      @BOARD_TIMER_COUNT@
+
+#endif /* BOARD_CONFIG_H */
+
