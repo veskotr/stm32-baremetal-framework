@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.20)
+
+# Keep compatibility with the existing filename while the project migrates to
+# the canonical CMakeLists.txt entrypoint.
+include(${CMAKE_CURRENT_LIST_DIR}/CMakeLists.txt)
