@@ -14,4 +14,9 @@ It targets STM32 MCUs that use the HAL, accepts some HAL leakage where it keeps 
 Start with the docs in [`docs/`](./docs/):
 - `architecture.md`
 - `development_rules.md`
+- `cubemx_workflow.md`
+- `external_project.md`
+- `testing.md`
+- `handoff.md`
 
+Example firmware projects live in [`examples/`](./examples/).

@@ -11,9 +11,9 @@ It exists to make handoff between coding sessions easy and to help future contri
 
 ## Current Status
 
-`framework_v3` is in the documentation and architecture definition stage.
+`framework_v3` has moved from architecture-only notes into the first working scaffold.
 
-The implementation has not started yet.
+The current implementation can sync CubeMX board metadata, generate board glue, configure external-style firmware targets, and build the current examples.
 
 Current completed work:
 - created `framework_v3/`
@@ -22,6 +22,11 @@ Current completed work:
 - documented development and maintenance rules
 - documented that the framework owns the build system
 - documented the expected role of CubeMX
+- added the first CubeMX sync script for generated board metadata and framework glue
+- added the first CMake scaffold for external app consumption
+- added initial example firmware projects
+- added testing strategy notes
+- verified both current examples build on Linux
 
 ## Confirmed Design Decisions
 
@@ -39,6 +44,7 @@ The following decisions are already agreed and should be treated as the working 
 - HAL leakage is acceptable.
 - The framework should stay simple rather than hiding HAL behind heavy abstraction.
 - HAL handles and STM32 HAL types may be used in framework code when helpful.
+- The framework core should stay C-first. C++ may be used by external applications later, but it is not required by the framework.
 
 ### 3. CubeMX ownership
 
@@ -103,6 +109,7 @@ This is the intended high-level structure:
 - `framework_v3/drivers`
 - `framework_v3/tools`
 - `framework_v3/docs`
+- `framework_v3/examples`
 
 ## Recommended Implementation Order
 
@@ -112,16 +119,18 @@ The next implementation work should happen in this order unless a good reason ap
 
 Goal:
 - establish the base framework structure
-- make build/flash/debug ownership real
+- make CubeMX sync and build/flash/debug ownership real
 
 Tasks:
-- create initial folder scaffold
-- add top-level `framework_v3/CMakeLists.txt`
-- add reusable CMake helper functions
-- define board registration flow
-- define firmware target creation flow
-- add OpenOCD flash target support
-- add debug target generation
+- create initial folder scaffold: done
+- add CubeMX board sync script: done
+- generate initial board metadata from the current CubeMX projects: done
+- add top-level `framework_v3/CMakeLists.txt`: done
+- add reusable CMake helper functions: done
+- define board registration flow: done
+- define firmware target creation flow: done
+- add OpenOCD flash target support: done for Linux/system OpenOCD
+- add debug target generation: initial `openocd_<target>` target exists
 
 ### Phase 2: board model
 
@@ -129,10 +138,10 @@ Goal:
 - define how a board is represented inside the framework
 
 Tasks:
-- define board metadata format
-- define board semantic roles format
-- add first STM32G0 board entry based on the current project
-- document what is generated vs handwritten
+- define board metadata format: first generated `board_manifest.cmake` exists
+- define board semantic roles format: first editable `board_roles.cmake` exists
+- add first STM32G0 board entry based on the current project: done
+- document what is generated vs handwritten: started in `cubemx_workflow.md`
 
 Possible files:
 - board manifest
@@ -152,6 +161,9 @@ Tasks:
 - optionally generate CMake config values
 - document config usage
 
+Status:
+- not started
+
 ### Phase 4: HAL helper layer
 
 Goal:
@@ -165,6 +177,10 @@ Expected focus:
 - delay/time helpers
 - critical section helpers
 
+Status:
+- not started in `framework_v3`
+- existing v1 helper code can be used as reference, but should be ported deliberately
+
 ### Phase 5: reusable integrations
 
 Goal:
@@ -173,6 +189,9 @@ Goal:
 Priority order:
 1. FreeModbus STM32 port
 2. Analog Devices no-OS STM32 port
+
+Status:
+- not started in `framework_v3`
 
 ### Phase 6: automation and reporting
 
@@ -187,16 +206,76 @@ Tasks:
 - artifact summary
 - optional object/symbol size reporting
 
+Status:
+- basic `.elf`, `.bin`, `.hex`, `.map`, and size output exist
+- deeper reporting is not started
+
 ### Phase 7: VS Code developer experience
 
 Goal:
 - make the default firmware workflow smooth on a fresh setup
 
 Tasks:
+- add a VS Code tool package under `framework_v3/tools`
 - add `tasks.json` templates or generated tasks
 - add `launch.json` templates or generated launch configs
 - document Cortex-Debug usage
 - document OpenOCD workflow
+
+Status:
+- not started
+- `framework_v3/tools/` has been structured so VS Code generators can be added cleanly
+
+### Phase 8: examples and testing
+
+Goal:
+- make the framework easy to learn and easy to test
+
+Tasks:
+- add examples for common board and peripheral workflows
+- add framework unit tests that run on the desktop
+- add a host build mode for firmware-like logic
+- add app-level unit test helpers
+- add app-level integration test helpers
+- define hardware-in-the-loop smoke test conventions
+- define later factory automated test conventions
+
+Status:
+- initial examples exist and build
+- testing strategy is documented in `testing.md`
+- host/desktop test implementation is not started
+
+## Current Verification Commands
+
+Run these after changing CMake, board sync generation, or board files:
+
+```sh
+python3 framework_v3/tools/sync_board.py framework_v3/boards/blue_pill_temp_transmitter
+python3 framework_v3/tools/sync_board.py framework_v3/boards/stm32g071kb_temp_transmitter
+```
+
+```sh
+cmake -S framework_v3/examples/blue_pill_minimal \
+  -B /tmp/hss-example-blue \
+  -G Ninja \
+  -DCMAKE_TOOLCHAIN_FILE=framework_v3/cmake/arm-gcc-toolchain.cmake \
+  -DCMAKE_BUILD_TYPE=Debug
+cmake --build /tmp/hss-example-blue
+```
+
+```sh
+cmake -S framework_v3/examples/stm32g0_minimal \
+  -B /tmp/hss-example-g0 \
+  -G Ninja \
+  -DCMAKE_TOOLCHAIN_FILE=framework_v3/cmake/arm-gcc-toolchain.cmake \
+  -DCMAKE_BUILD_TYPE=Debug
+cmake --build /tmp/hss-example-g0
+```
+
+Expected result:
+- both examples build
+- `.elf`, `.bin`, `.hex`, and `.map` are generated
+- firmware size is printed
 
 ## Likely First Board
 

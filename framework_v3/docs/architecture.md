@@ -146,6 +146,7 @@ The exact contents may evolve, but the intended structure is:
 - `framework_v3/drivers`
 - `framework_v3/tools`
 - `framework_v3/docs`
+- `framework_v3/examples`
 
 ### boards
 
@@ -209,6 +210,12 @@ Holds scripts and tooling for:
 ### docs
 
 Holds architecture and contributor documentation.
+
+### examples
+
+Holds small firmware projects that demonstrate how external applications consume the framework.
+
+Examples are allowed in the framework repository because they teach and verify the workflow. Production applications should live outside this repository and consume the framework as a submodule or dependency.
 
 ## Automation Strategy
 
