@@ -1,13 +1,8 @@
-#include "main.h"
-
-void board_clock_config(void);
-void board_init(void);
+#include "hss_platform.h"
 
 int main(void)
 {
-    HAL_Init();
-    board_clock_config();
-    board_init();
+    hss_platform_init();
 
     while (1) {
     }

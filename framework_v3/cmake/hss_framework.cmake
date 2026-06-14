@@ -93,11 +93,18 @@ function(hss_collect_hal_sources OUT_VAR HAL_DRIVER_DIR BOARD_CORE_INCLUDE_DIR)
 endfunction()
 
 function(hss_register_board BOARD_NAME)
+    if (HSS_ACTIVE_BOARD AND NOT HSS_ACTIVE_BOARD STREQUAL "${BOARD_NAME}")
+        message(FATAL_ERROR
+                "framework_v3 currently supports one selected board per CMake build. "
+                "Already selected '${HSS_ACTIVE_BOARD}', cannot also select '${BOARD_NAME}'.")
+    endif()
+
     hss_get_board_dir(BOARD_DIR "${BOARD_NAME}")
     hss_normalize_target_name(BOARD_TARGET_SUFFIX "${BOARD_NAME}")
     set(BOARD_TARGET "hss_board_${BOARD_TARGET_SUFFIX}")
 
     if (TARGET "${BOARD_TARGET}")
+        target_link_libraries(hss_framework_board INTERFACE "${BOARD_TARGET}")
         set(HSS_ACTIVE_BOARD "${BOARD_NAME}" CACHE INTERNAL "")
         set(HSS_ACTIVE_BOARD_TARGET "${BOARD_TARGET}" CACHE INTERNAL "")
         return()
@@ -147,6 +154,8 @@ function(hss_register_board BOARD_NAME)
     )
 
     hss_add_board_sync_target("${BOARD_NAME}" "${BOARD_DIR}")
+
+    target_link_libraries(hss_framework_board INTERFACE "${BOARD_TARGET}")
 
     set(HSS_ACTIVE_BOARD "${BOARD_NAME}" CACHE INTERNAL "")
     set(HSS_ACTIVE_BOARD_TARGET "${BOARD_TARGET}" CACHE INTERNAL "")

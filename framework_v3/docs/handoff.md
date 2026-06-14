@@ -12,6 +12,7 @@ This document captures the current state of `framework_v3` for future coding ses
 - CMake framework entrypoint at `framework_v3/CMakeLists.txt`
 - reusable CMake functions in `framework_v3/cmake/hss_framework.cmake`
 - ARM GCC toolchain file in `framework_v3/cmake/arm-gcc-toolchain.cmake`
+- first framework-owned HAL glue module under `framework_v3/hal/`
 - example firmware projects in `framework_v3/examples/`
 - docs for CubeMX sync, external project usage, examples, and testing direction
 
@@ -90,6 +91,8 @@ hss_add_firmware(my_app
 
 The framework repo may contain examples and framework tests, but production applications should not be added to this repository.
 
+The current CMake scaffold supports one selected board per build directory. Use separate build directories for different boards.
+
 ## Linux OpenOCD Policy
 
 On Linux, use the system `openocd` found in `PATH`.
@@ -100,7 +103,7 @@ The bundled Windows OpenOCD tools from older framework versions are not used by 
 
 Good next implementation tasks:
 
-1. Add the first `hal/` helper modules as C code, probably GPIO/time first.
+1. Expand `hal/` carefully, probably UART/SPI/timer next only after role handling is clearer.
 2. Decide which existing v1 helpers should be ported and which should be replaced.
 3. Add a small host-test scaffold so C framework logic can run on desktop.
 4. Add VS Code task generation for configure/build/sync/flash/openocd.

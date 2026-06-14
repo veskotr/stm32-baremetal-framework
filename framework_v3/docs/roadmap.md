@@ -24,6 +24,7 @@ Current completed work:
 - documented the expected role of CubeMX
 - added the first CubeMX sync script for generated board metadata and framework glue
 - added the first CMake scaffold for external app consumption
+- added the first framework-owned `hal/` C glue module
 - added initial example firmware projects
 - added testing strategy notes
 - verified both current examples build on Linux
@@ -178,7 +179,7 @@ Expected focus:
 - critical section helpers
 
 Status:
-- not started in `framework_v3`
+- started with platform init, delay, IRQ, and basic GPIO wrappers
 - existing v1 helper code can be used as reference, but should be ported deliberately
 
 ### Phase 5: reusable integrations
