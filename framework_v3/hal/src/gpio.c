@@ -1,12 +1,24 @@
 #include "hss_gpio.h"
+#include <stddef.h>
 
-void hss_gpio_write(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState state)
+hss_result_t hss_gpio_write(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState state)
 {
+    if (port == NULL || pin == 0U)
+    {
+        return HSS_INVALID_ARGUMENT;
+    }
+
     HAL_GPIO_WritePin(port, pin, state);
+    return HSS_OK;
 }
 
-void hss_gpio_toggle(GPIO_TypeDef *port, uint16_t pin)
+hss_result_t hss_gpio_toggle(GPIO_TypeDef *port, uint16_t pin)
 {
-    HAL_GPIO_TogglePin(port, pin);
-}
+    if (port == NULL || pin == 0U)
+    {
+        return HSS_INVALID_ARGUMENT;
+    }
 
+    HAL_GPIO_TogglePin(port, pin);
+    return HSS_OK;
+}

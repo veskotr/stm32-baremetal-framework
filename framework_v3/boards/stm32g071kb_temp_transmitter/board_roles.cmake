@@ -3,6 +3,10 @@
 # Rerunning the sync script will not overwrite it.
 
 # Examples:
-# set(BOARD_ROLE_MODBUS_UART USART1)
+# TODO: enable after CubeMX regenerates a timer for Modbus timing.
 # set(BOARD_ROLE_MODBUS_TIMER TIM2)
+# TODO: enable after CubeMX regenerates USART2 and exposes huart2.
+# set(BOARD_ROLE_DEBUG_UART USART2)
+set(BOARD_ROLE_CONSOLE_UART USART1)
+set(BOARD_ROLE_MODBUS_UART USART1)
 # set(BOARD_ROLE_STATUS_LED PC13)

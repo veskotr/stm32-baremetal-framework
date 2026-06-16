@@ -13,6 +13,8 @@ It exists to make handoff between coding sessions easy and to help future contri
 
 `framework_v3` has moved from architecture-only notes into the first working scaffold.
 
+Current version: `0.1.0`
+
 The current implementation can sync CubeMX board metadata, generate board glue, configure external-style firmware targets, and build the current examples.
 
 Current completed work:
@@ -24,10 +26,16 @@ Current completed work:
 - documented the expected role of CubeMX
 - added the first CubeMX sync script for generated board metadata and framework glue
 - added the first CMake scaffold for external app consumption
+- added the first common result/error type module
 - added the first framework-owned `hal/` C glue module
+- added placeholder `drivers` and `protocols` module targets
 - added initial example firmware projects
+- added first opt-in FreeModbus protocol port
+- added first HSS Modbus API and Blue Pill Modbus slave example
 - added testing strategy notes
 - verified both current examples build on Linux
+
+`0.1.0` should be treated as the baseline commit before hardware validation and VS Code workflow automation.
 
 ## Confirmed Design Decisions
 
@@ -105,6 +113,7 @@ This is the intended high-level structure:
 
 - `framework_v3/boards`
 - `framework_v3/cmake`
+- `framework_v3/common`
 - `framework_v3/hal`
 - `framework_v3/protocols`
 - `framework_v3/drivers`
@@ -141,6 +150,7 @@ Goal:
 Tasks:
 - define board metadata format: first generated `board_manifest.cmake` exists
 - define board semantic roles format: first editable `board_roles.cmake` exists
+- generate board role header from selected CMake roles: started with status LED
 - add first STM32G0 board entry based on the current project: done
 - document what is generated vs handwritten: started in `cubemx_workflow.md`
 
@@ -165,6 +175,16 @@ Tasks:
 Status:
 - not started
 
+### Phase 3.5: common types
+
+Goal:
+- provide small framework-wide types that apps and framework modules can share
+
+Status:
+- started with `hss_result_t` and simple helpers
+- current convention: use `hss_result_t` for recoverable or validateable operations, not mechanically for every function
+- keep this module small and dependency-light
+
 ### Phase 4: HAL helper layer
 
 Goal:
@@ -180,6 +200,17 @@ Expected focus:
 
 Status:
 - started with platform init, delay, IRQ, and basic GPIO wrappers
+- first semantic helper added: status LED API backed by `BOARD_ROLE_STATUS_LED`
+- async UART wrapper added for blocking TX/RX and byte writes
+- console UART role added with `hss_console_*`
+- `printf()` and `scanf()` are mapped through `BOARD_ROLE_CONSOLE_UART` via CubeMX `__io_putchar()`/`__io_getchar()`
+- manual-DE RS485 transmit helper added; hardware DE remains CubeMX-owned
+- RS485 DE is optional; missing DE falls back to plain UART transmit
+- Modbus UART role wrapper added as FreeModbus transport preparation
+- Modbus UART interrupt/data-register helpers added for the FreeModbus serial port
+- timer wrapper added for start/stop interrupt mode, reset, period ticks, and basic properties
+- Modbus timer role wrapper added; Blue Pill maps TIM2, G0 still needs a CubeMX timer
+- synchronous USART mode is intentionally out of scope
 - existing v1 helper code can be used as reference, but should be ported deliberately
 
 ### Phase 5: reusable integrations
@@ -192,7 +223,16 @@ Priority order:
 2. Analog Devices no-OS STM32 port
 
 Status:
-- not started in `framework_v3`
+- FreeModbus has a first v3 port under `protocols/freemodbus/`
+- FreeModbus is opt-in with `HSS_ENABLE_FREEMODBUS=ON`
+- upstream FreeModbus `1.6.0` is fetched with CMake `FetchContent`
+- port files are backed by `hss_modbus_uart_*`, `hss_modbus_timer_*`, and `hss_irq_*`
+- HSS-facing Modbus API added with `hss_modbus_*`, app-owned holding/input register banks, and `hss_result_t` returns
+- Blue Pill FreeModbus-enabled firmware configures and builds
+- Blue Pill minimal example enables FreeModbus by default
+- Blue Pill Modbus slave example added and builds
+- hardware/runtime validation is still pending
+- Analog Devices no-OS integration is not started
 
 ### Phase 6: automation and reporting
 

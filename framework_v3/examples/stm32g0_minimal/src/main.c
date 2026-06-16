@@ -1,8 +1,16 @@
-#include "hss_platform.h"
+#include "hss_hal.h"
+#include "main.h"
+#include <stdio.h>
 
 int main(void)
 {
-    hss_platform_init();
+    if (hss_platform_init() != HSS_OK) {
+        Error_Handler();
+    }
+
+    if (hss_console_is_available()) {
+        printf("stm32g0_minimal boot\r\n");
+    }
 
     while (1) {
     }

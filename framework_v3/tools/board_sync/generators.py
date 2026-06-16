@@ -203,9 +203,15 @@ def write_roles(board_dir: Path, values: dict[str, str]) -> Path:
 # Rerunning the sync script will not overwrite it.
 
 # Examples:
+# set(BOARD_ROLE_CONSOLE_UART USART1)
+# set(BOARD_ROLE_DEBUG_UART USART2)
 # set(BOARD_ROLE_MODBUS_UART USART1)
 # set(BOARD_ROLE_MODBUS_TIMER TIM2)
+# set(BOARD_ROLE_MODBUS_RS485_MODE manual)
+# set(BOARD_ROLE_MODBUS_RS485_DE PA8)
+# set(BOARD_ROLE_MODBUS_RS485_DE_ACTIVE_HIGH ON)
 # set(BOARD_ROLE_STATUS_LED PC13)
+# set(BOARD_ROLE_STATUS_LED_ACTIVE_LOW ON)
 """
     path = board_dir / "board_roles.cmake"
     write_if_missing(path, content)

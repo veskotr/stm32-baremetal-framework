@@ -21,10 +21,12 @@ compile_commands.json
 # =========================
 *.o
 *.obj
+*.pyc
 *.so
 *.a
 *.lib
 *.out
+__pycache__/
 
 # =========================
 # Debug / profiling
