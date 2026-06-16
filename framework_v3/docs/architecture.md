@@ -179,6 +179,7 @@ Expected focus areas:
 - UART
 - SPI
 - GPIO
+- GPIO interrupts / EXTI callback dispatch
 - timer
 - delay/time
 - critical section helpers

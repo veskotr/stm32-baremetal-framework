@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(hss_framework_v3
-        VERSION 0.1.0
+        VERSION 0.2.0
         LANGUAGES C ASM)
 
 set(HSS_FRAMEWORK_ROOT "${CMAKE_CURRENT_LIST_DIR}" CACHE INTERNAL "HSS framework root")

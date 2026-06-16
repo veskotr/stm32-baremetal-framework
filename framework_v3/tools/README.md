@@ -6,11 +6,11 @@ Current tools:
 
 - `sync_board.py`: compatibility entrypoint for board sync
 - `board_sync/`: CubeMX board inspection and generated framework glue
+- `generate_vscode.py`: compatibility entrypoint for VS Code workflow generation
+- `vscode/`: generated VS Code tasks and Cortex-Debug launch configuration
 
 Planned tools:
 
-- VS Code task generation
-- VS Code launch configuration generation
 - build, flash, debug helper generation
 - report and artifact summary helpers
 

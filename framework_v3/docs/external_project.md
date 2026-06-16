@@ -47,10 +47,31 @@ Generated targets:
 - `my_app`
 - `flash_my_app`
 - `openocd_my_app`
+- `vscode_my_app`
 - `sync_board_<board>`
 
 On Linux the framework uses the system `openocd` found in `PATH`.
 The bundled Windows OpenOCD tools from older framework versions are not used by this CMake scaffold.
+
+To generate VS Code workflow files for the project:
+
+```cmake
+hss_add_firmware(my_app
+        BOARD blue_pill_temp_transmitter
+        src/main.c
+)
+
+hss_generate_vscode(my_app)
+```
+
+or:
+
+```sh
+cmake --build build/debug --target vscode_my_app
+```
+
+This writes HSS-owned entries to `.vscode/tasks.json` and `.vscode/launch.json`.
+See `docs/vscode.md` for details.
 
 For copyable starter projects, see `framework_v3/examples/`.
 

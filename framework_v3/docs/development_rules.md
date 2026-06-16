@@ -62,6 +62,8 @@ Examples of roles:
 - sensor chip select
 - status LED
 
+When a role names a peripheral or pin, use the same names CubeMX exposes (`SPI1`, `USART1`, `TIM2`, `PA4`, `PC13`) so generated role headers can remain simple and predictable.
+
 ## Rules For Integrations
 
 When adding a new protocol or driver integration:

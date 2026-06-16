@@ -6,6 +6,8 @@ add_library(hss_hal STATIC
         src/modbus_timer.c
         src/modbus_uart.c
         src/platform.c
+        src/sensor_spi.c
+        src/spi.c
         src/status_led.c
         src/timer.c
         src/time.c

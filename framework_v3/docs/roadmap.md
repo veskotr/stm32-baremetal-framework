@@ -13,9 +13,9 @@ It exists to make handoff between coding sessions easy and to help future contri
 
 `framework_v3` has moved from architecture-only notes into the first working scaffold.
 
-Current version: `0.1.0`
+Current version: `0.2.0`
 
-The current implementation can sync CubeMX board metadata, generate board glue, configure external-style firmware targets, and build the current examples.
+The current implementation can sync CubeMX board metadata, generate board glue, configure external-style firmware targets, build the current examples, provide SPI/GPIO helper coverage, and generate VS Code task/debug workflows.
 
 Current completed work:
 - created `framework_v3/`
@@ -32,10 +32,12 @@ Current completed work:
 - added initial example firmware projects
 - added first opt-in FreeModbus protocol port
 - added first HSS Modbus API and Blue Pill Modbus slave example
+- added SPI helpers, sensor SPI roles, and GPIO EXTI callback dispatch
+- added VS Code tasks and Cortex-Debug launch generation
 - added testing strategy notes
 - verified both current examples build on Linux
 
-`0.1.0` should be treated as the baseline commit before hardware validation and VS Code workflow automation.
+`0.1.0` should be treated as the first scaffold baseline. `0.2.0` is the HAL-helper and developer-workflow milestone before hardware validation.
 
 ## Confirmed Design Decisions
 
@@ -210,6 +212,9 @@ Status:
 - Modbus UART interrupt/data-register helpers added for the FreeModbus serial port
 - timer wrapper added for start/stop interrupt mode, reset, period ticks, and basic properties
 - Modbus timer role wrapper added; Blue Pill maps TIM2, G0 still needs a CubeMX timer
+- SPI wrapper added for blocking write/read/transfer operations, plus optional software chip-select handling through `hss_spi_device_t`
+- GPIO wrapper now supports read/write/toggle and callback registration for CubeMX/HAL EXTI callbacks
+- first generic sensor SPI role macros are generated from `BOARD_ROLE_SENSOR_SPI` and optional `BOARD_ROLE_SENSOR_CS`; `hss_sensor_spi_*` provides the role-backed helper
 - synchronous USART mode is intentionally out of scope
 - existing v1 helper code can be used as reference, but should be ported deliberately
 
@@ -264,7 +269,9 @@ Tasks:
 - document OpenOCD workflow
 
 Status:
-- not started
+- started with `tools/vscode/`
+- `hss_generate_vscode(<target>)`, `hss_add_firmware(... GENERATE_VSCODE ...)`, and `vscode_<firmware_target>` generate `.vscode/tasks.json` and `.vscode/launch.json`
+- generated launch configs use Cortex-Debug and board OpenOCD metadata
 - `framework_v3/tools/` has been structured so VS Code generators can be added cleanly
 
 ### Phase 8: examples and testing

@@ -4,9 +4,9 @@ This document captures the current state of `framework_v3` for future coding ses
 
 ## Current State
 
-`framework_v3` is currently at version `0.1.0`.
+`framework_v3` is currently at version `0.2.0`.
 
-`0.1.0` is the first usable scaffold version:
+`0.2.0` is the current HAL-helper and developer-workflow milestone:
 
 - CubeMX-generated board projects copied into `framework_v3/boards/`
 - board sync tooling under `framework_v3/tools/board_sync/`
@@ -14,9 +14,11 @@ This document captures the current state of `framework_v3` for future coding ses
 - CMake framework entrypoint at `framework_v3/CMakeLists.txt`
 - reusable CMake functions in `framework_v3/cmake/hss_framework.cmake`
 - ARM GCC toolchain file in `framework_v3/cmake/arm-gcc-toolchain.cmake`
+- VS Code workflow generator under `framework_v3/tools/vscode/`
 - first common type module under `framework_v3/common/`
 - first framework-owned HAL glue module under `framework_v3/hal/`
 - first role-backed helper: status LED API generated from `board_roles.cmake`
+- SPI helpers, sensor SPI roles, and GPIO EXTI callback dispatch
 - placeholder driver module target under `framework_v3/drivers/`
 - first opt-in protocol integration under `framework_v3/protocols/freemodbus/`
 - example firmware projects in `framework_v3/examples/`
@@ -24,7 +26,7 @@ This document captures the current state of `framework_v3` for future coding ses
 
 The framework is C-first. C++ should not be required by the framework core.
 
-CMake declares the version in `framework_v3/CMakeLists.txt` through `project(... VERSION 0.1.0 ...)` and exposes it internally as `HSS_FRAMEWORK_VERSION`.
+CMake declares the version in `framework_v3/CMakeLists.txt` through `project(... VERSION 0.2.0 ...)` and exposes it internally as `HSS_FRAMEWORK_VERSION`.
 
 The common module currently defines `hss_result_t`, simple result predicates, string conversion, and a HAL status mapping helper in `hal/`. Framework APIs should return `hss_result_t` when the caller can handle a recoverable failure; fire-and-forget calls such as delay and IRQ enable/disable can stay `void`.
 
@@ -66,6 +68,16 @@ set(BOARD_ROLE_STATUS_LED_ACTIVE_LOW ON)
 
 Framework code consumes that role through `hss_status_led_is_available()`, `hss_status_led_on()`, `hss_status_led_off()`, `hss_status_led_write()`, and `hss_status_led_toggle()`.
 
+Generic sensor SPI roles are also supported:
+
+```cmake
+set(BOARD_ROLE_SENSOR_SPI SPI1)
+# set(BOARD_ROLE_SENSOR_CS PA4)
+# set(BOARD_ROLE_SENSOR_CS_ACTIVE_LOW ON)
+```
+
+`BOARD_ROLE_SENSOR_SPI` generates `HSS_BOARD_HAS_SENSOR_SPI` and `HSS_BOARD_SENSOR_SPI_HANDLE`. Optional `BOARD_ROLE_SENSOR_CS` generates `HSS_BOARD_HAS_SENSOR_CS`, `HSS_BOARD_SENSOR_CS_PORT`, `HSS_BOARD_SENSOR_CS_PIN`, and `HSS_BOARD_SENSOR_CS_ACTIVE_LOW`. Both current boards map sensor SPI to `SPI1`; neither currently enables a sensor CS role because CubeMX has not configured a dedicated chip-select GPIO. Framework code can consume the role through `hss_sensor_spi_is_available()`, `hss_sensor_spi_get_device()`, `hss_sensor_spi_write()`, `hss_sensor_spi_read()`, and `hss_sensor_spi_transfer()`.
+
 UART support is async-only by policy. `hss_uart_*` wraps normal HAL UART transmit/receive calls, and `hss_console_*` is the first role-backed UART helper. Synchronous USART mode is intentionally out of scope until a real application needs it.
 
 When `BOARD_ROLE_CONSOLE_UART` is set, framework-owned `__io_putchar()` and `__io_getchar()` route CubeMX/newlib `printf()` and `scanf()` through the console UART. The default stdio timeout is controlled by `HSS_CONSOLE_STDIO_TIMEOUT_MS`.
@@ -89,6 +101,10 @@ Current FreeModbus focus is Blue Pill. The Blue Pill role setup maps `USART1` as
 Current CubeMX projects only enable `USART1`; both generated `board_config.h` files report `BOARD_UART2 0`. The desired split is `USART1` for Modbus and `USART2` for debug/console, but `BOARD_ROLE_DEBUG_UART USART2` should stay commented until CubeMX is regenerated with USART2 enabled.
 
 Timer support is also CubeMX-owned. The generic `hss_timer_*` wrapper exposes start/stop interrupt mode, reset, period ticks, and basic properties. `hss_modbus_timer_*` is the role-backed wrapper for FreeModbus timing. Blue Pill currently maps `BOARD_ROLE_MODBUS_TIMER TIM2`; the G0 board does not yet have a generated timer and should keep the Modbus timer role commented until CubeMX enables one.
+
+SPI support is a thin HAL helper in `hss_spi_*`. It provides blocking write/read/transfer calls and `hss_spi_device_t` helpers that optionally assert/deassert a software chip-select GPIO around a transaction. CubeMX still owns SPI mode, pinmux, DMA, NSS, and peripheral init.
+
+GPIO support now includes read/write/toggle and a small EXTI callback registry. Applications can call `hss_gpio_register_interrupt(GPIO_PIN_x, callback, context)` and the framework dispatches from `HAL_GPIO_EXTI_Callback()`. CubeMX must still configure the pin as EXTI and generate/enable the correct NVIC handler; registration alone does not enable an interrupt line.
 
 ## Verified Builds
 
@@ -170,6 +186,15 @@ The framework repo may contain examples and framework tests, but production appl
 
 The current CMake scaffold supports one selected board per build directory. Use separate build directories for different boards.
 
+Each `hss_add_firmware(<target> ...)` call now creates:
+
+- `<target>`
+- `flash_<target>`
+- `openocd_<target>`
+- `vscode_<target>`
+
+`hss_generate_vscode(<target>)` writes HSS-owned VS Code entries during CMake configure. `hss_add_firmware(... GENERATE_VSCODE ...)` is a shorthand for the same behavior. `vscode_<target>` remains available when generation should be triggered manually as a build target. The generator preserves unrelated entries and replaces entries generated for the same HSS target. The launch config expects the VS Code Cortex-Debug extension.
+
 ## Linux OpenOCD Policy
 
 On Linux, use the system `openocd` found in `PATH`.
@@ -183,9 +208,9 @@ Good next implementation tasks:
 1. Validate `examples/blue_pill_modbus_slave` RX/TX and TIM2 timeout behavior on hardware.
 2. Decide whether the FreeModbus dependency should stay as `FetchContent` or become a vendored/submodule dependency for offline builds.
 3. Add Modbus coil/discrete APIs when an application needs those register types.
-4. Extend board role handling to SPI and other timer resources.
+4. Add a driver integration on top of the new sensor SPI role, once the real sensor and chip-select pin are finalized.
 5. Add a small host-test scaffold so C framework logic can run on desktop.
-6. Add VS Code task generation for configure/build/sync/flash/openocd.
+6. Validate the generated VS Code debug launch on hardware with Cortex-Debug and OpenOCD.
 7. Add memory/reporting improvements beyond `arm-none-eabi-size`.
 
 Keep changes small and verify with both examples after changing CMake, sync tooling, or generated board files.
