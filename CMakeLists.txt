@@ -1,11 +1,13 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(stm32_demo C CXX ASM)
+project(example_firmware C ASM)
 
-# === Framework ===
-add_subdirectory(framework_v2)
+set(HSS_ENABLE_FREEMODBUS ON CACHE BOOL "Enable FreeModbus for the Blue Pill Modbus slave example" FORCE)
 
-hss_add_firmware(my_app
-        BOARD bluepill_f103
-        main.cpp
+add_subdirectory(framework_v3)
+
+hss_add_firmware(example_firmware
+        BOARD blue_pill_temp_transmitter
+        GENERATE_VSCODE
+        src/main.c
 )

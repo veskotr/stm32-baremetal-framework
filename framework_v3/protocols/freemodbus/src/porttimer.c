@@ -1,11 +1,15 @@
 #include <stdint.h>
 
 #include "hss_modbus_timer.h"
+#include "hss_modbus.h"
 #include "mb.h"
 #include "mbport.h"
 
 static volatile uint32_t g_downcounter;
 static uint32_t g_timeout_reload;
+#if HSS_ENABLE_MODBUS_DEBUG
+volatile uint32_t hss_modbus_debug_timer_expired_count;
+#endif
 
 static void hss_freemodbus_timer_tick(void *context)
 {
@@ -16,6 +20,9 @@ static void hss_freemodbus_timer_tick(void *context)
         g_downcounter--;
         if (g_downcounter == 0U)
         {
+#if HSS_ENABLE_MODBUS_DEBUG
+            hss_modbus_debug_timer_expired_count++;
+#endif
             (void)pxMBPortCBTimerExpired();
         }
     }

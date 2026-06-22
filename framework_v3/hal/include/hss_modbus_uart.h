@@ -5,11 +5,30 @@
 
 #include "hss_result.h"
 
+#ifndef HSS_ENABLE_MODBUS_DEBUG
+#define HSS_ENABLE_MODBUS_DEBUG 0
+#endif
+
 typedef void (*hss_modbus_uart_callback_t)(void *context);
+
+typedef enum
+{
+    HSS_MODBUS_UART_PARITY_NONE = 0,
+    HSS_MODBUS_UART_PARITY_ODD = 1,
+    HSS_MODBUS_UART_PARITY_EVEN = 2,
+} hss_modbus_uart_parity_t;
+
+#if HSS_ENABLE_MODBUS_DEBUG
+extern volatile uint32_t hss_modbus_uart_debug_rx_count;
+extern volatile uint32_t hss_modbus_uart_debug_tx_count;
+#endif
 
 bool hss_modbus_uart_is_available(void);
 bool hss_modbus_uart_uses_manual_rs485_de(void);
 bool hss_modbus_uart_uses_hardware_rs485_de(void);
+hss_result_t hss_modbus_uart_configure(uint32_t baudrate,
+                                       uint8_t data_bits,
+                                       hss_modbus_uart_parity_t parity);
 hss_result_t hss_modbus_uart_write(const uint8_t *data, uint16_t length, uint32_t timeout_ms);
 hss_result_t hss_modbus_uart_read(uint8_t *data, uint16_t length, uint32_t timeout_ms);
 hss_result_t hss_modbus_uart_write_byte(uint8_t byte, uint32_t timeout_ms);

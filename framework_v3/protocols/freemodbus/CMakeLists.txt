@@ -45,3 +45,7 @@ target_link_libraries(hss_freemodbus PUBLIC
         hss_common
         hss_hal
 )
+
+if(HSS_ENABLE_MODBUS_DEBUG)
+    target_compile_definitions(hss_freemodbus PUBLIC HSS_ENABLE_MODBUS_DEBUG=1)
+endif()

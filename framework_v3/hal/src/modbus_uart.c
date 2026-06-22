@@ -12,11 +12,14 @@ static hss_modbus_uart_callback_t g_modbus_uart_rx_callback;
 static void *g_modbus_uart_rx_context;
 static hss_modbus_uart_callback_t g_modbus_uart_tx_empty_callback;
 static void *g_modbus_uart_tx_empty_context;
+#if HSS_ENABLE_MODBUS_DEBUG
+volatile uint32_t hss_modbus_uart_debug_rx_count;
+volatile uint32_t hss_modbus_uart_debug_tx_count;
+#endif
 
 #if HSS_BOARD_HAS_MODBUS_UART
-static uint8_t g_modbus_uart_rx_byte;
-static bool g_modbus_uart_rx_byte_available;
 static bool g_modbus_uart_rx_irq_enabled;
+static bool g_modbus_uart_tx_irq_enabled;
 
 static void hss_modbus_uart_write_data_register(UART_HandleTypeDef *uart, uint8_t byte)
 {
@@ -34,13 +37,6 @@ static uint8_t hss_modbus_uart_read_data_register(UART_HandleTypeDef *uart)
 #else
     return (uint8_t)(uart->Instance->DR & 0xFFU);
 #endif
-}
-
-static hss_result_t hss_modbus_uart_restart_rx(void)
-{
-    return hss_result_from_hal_status(HAL_UART_Receive_IT(&HSS_BOARD_MODBUS_UART_HANDLE,
-                                                          &g_modbus_uart_rx_byte,
-                                                          1U));
 }
 #endif
 
@@ -68,6 +64,57 @@ bool hss_modbus_uart_uses_hardware_rs485_de(void)
     return true;
 #else
     return false;
+#endif
+}
+
+hss_result_t hss_modbus_uart_configure(uint32_t baudrate,
+                                       uint8_t data_bits,
+                                       hss_modbus_uart_parity_t parity)
+{
+#if HSS_BOARD_HAS_MODBUS_UART
+    if (baudrate == 0U || data_bits < 7U || data_bits > 9U)
+    {
+        return HSS_INVALID_ARGUMENT;
+    }
+
+    UART_HandleTypeDef *uart = &HSS_BOARD_MODBUS_UART_HANDLE;
+
+    (void)HAL_UART_Abort(uart);
+    if (HAL_UART_DeInit(uart) != HAL_OK)
+    {
+        return HSS_ERROR;
+    }
+
+    uart->Init.BaudRate = baudrate;
+    uart->Init.WordLength = (parity == HSS_MODBUS_UART_PARITY_NONE) ? UART_WORDLENGTH_8B : UART_WORDLENGTH_9B;
+    uart->Init.StopBits = UART_STOPBITS_1;
+    uart->Init.Mode = UART_MODE_TX_RX;
+    uart->Init.HwFlowCtl = UART_HWCONTROL_NONE;
+    uart->Init.OverSampling = UART_OVERSAMPLING_16;
+
+    switch (parity)
+    {
+    case HSS_MODBUS_UART_PARITY_ODD:
+        uart->Init.Parity = UART_PARITY_ODD;
+        break;
+    case HSS_MODBUS_UART_PARITY_EVEN:
+        uart->Init.Parity = UART_PARITY_EVEN;
+        break;
+    case HSS_MODBUS_UART_PARITY_NONE:
+    default:
+        uart->Init.Parity = UART_PARITY_NONE;
+        break;
+    }
+
+    g_modbus_uart_rx_irq_enabled = false;
+    g_modbus_uart_tx_irq_enabled = false;
+
+    return hss_result_from_hal_status(HAL_UART_Init(uart));
+#else
+    (void)baudrate;
+    (void)data_bits;
+    (void)parity;
+    return HSS_NOT_SUPPORTED;
 #endif
 }
 
@@ -146,9 +193,8 @@ hss_result_t hss_modbus_uart_enable_rx_irq(void)
 {
 #if HSS_BOARD_HAS_MODBUS_UART
     g_modbus_uart_rx_irq_enabled = true;
-    g_modbus_uart_rx_byte_available = false;
-    (void)HAL_UART_AbortReceive(&HSS_BOARD_MODBUS_UART_HANDLE);
-    return hss_modbus_uart_restart_rx();
+    __HAL_UART_ENABLE_IT(&HSS_BOARD_MODBUS_UART_HANDLE, UART_IT_RXNE);
+    return HSS_OK;
 #else
     return HSS_NOT_SUPPORTED;
 #endif
@@ -158,8 +204,8 @@ hss_result_t hss_modbus_uart_disable_rx_irq(void)
 {
 #if HSS_BOARD_HAS_MODBUS_UART
     g_modbus_uart_rx_irq_enabled = false;
-    g_modbus_uart_rx_byte_available = false;
-    return hss_result_from_hal_status(HAL_UART_AbortReceive(&HSS_BOARD_MODBUS_UART_HANDLE));
+    __HAL_UART_DISABLE_IT(&HSS_BOARD_MODBUS_UART_HANDLE, UART_IT_RXNE);
+    return HSS_OK;
 #else
     return HSS_NOT_SUPPORTED;
 #endif
@@ -168,6 +214,7 @@ hss_result_t hss_modbus_uart_disable_rx_irq(void)
 hss_result_t hss_modbus_uart_enable_tx_empty_irq(void)
 {
 #if HSS_BOARD_HAS_MODBUS_UART
+    g_modbus_uart_tx_irq_enabled = true;
     __HAL_UART_ENABLE_IT(&HSS_BOARD_MODBUS_UART_HANDLE, UART_IT_TXE);
     return HSS_OK;
 #else
@@ -178,6 +225,7 @@ hss_result_t hss_modbus_uart_enable_tx_empty_irq(void)
 hss_result_t hss_modbus_uart_disable_tx_empty_irq(void)
 {
 #if HSS_BOARD_HAS_MODBUS_UART
+    g_modbus_uart_tx_irq_enabled = false;
     __HAL_UART_DISABLE_IT(&HSS_BOARD_MODBUS_UART_HANDLE, UART_IT_TXE);
     return HSS_OK;
 #else
@@ -189,6 +237,9 @@ hss_result_t hss_modbus_uart_write_tx_register(uint8_t byte)
 {
 #if HSS_BOARD_HAS_MODBUS_UART
     hss_modbus_uart_write_data_register(&HSS_BOARD_MODBUS_UART_HANDLE, byte);
+#if HSS_ENABLE_MODBUS_DEBUG
+    hss_modbus_uart_debug_tx_count++;
+#endif
     return HSS_OK;
 #else
     (void)byte;
@@ -204,13 +255,7 @@ hss_result_t hss_modbus_uart_read_rx_register(uint8_t *byte)
     }
 
 #if HSS_BOARD_HAS_MODBUS_UART
-    if (!g_modbus_uart_rx_byte_available)
-    {
-        return HSS_NOT_READY;
-    }
-
-    *byte = g_modbus_uart_rx_byte;
-    g_modbus_uart_rx_byte_available = false;
+    *byte = hss_modbus_uart_read_data_register(&HSS_BOARD_MODBUS_UART_HANDLE);
     return HSS_OK;
 #else
     return HSS_NOT_SUPPORTED;
@@ -218,29 +263,49 @@ hss_result_t hss_modbus_uart_read_rx_register(uint8_t *byte)
 }
 
 #if HSS_BOARD_HAS_MODBUS_UART
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *uart)
+int uart1_irq_handler(void)
 {
-    if (uart == &HSS_BOARD_MODBUS_UART_HANDLE)
+    UART_HandleTypeDef *uart = &HSS_BOARD_MODBUS_UART_HANDLE;
+    int handled = 0;
+
+    if (__HAL_UART_GET_FLAG(uart, UART_FLAG_RXNE) &&
+        __HAL_UART_GET_IT_SOURCE(uart, UART_IT_RXNE))
     {
-        g_modbus_uart_rx_byte_available = true;
+#if HSS_ENABLE_MODBUS_DEBUG
+        hss_modbus_uart_debug_rx_count++;
+#endif
 
         if (g_modbus_uart_rx_callback != 0)
         {
             g_modbus_uart_rx_callback(g_modbus_uart_rx_context);
         }
 
-        if (g_modbus_uart_rx_irq_enabled)
-        {
-            (void)hss_modbus_uart_restart_rx();
-        }
+        handled = 1;
     }
-}
 
-void uart1_txe_handler(void)
-{
-    if (g_modbus_uart_tx_empty_callback != 0)
+    if (__HAL_UART_GET_FLAG(uart, UART_FLAG_TXE) &&
+        __HAL_UART_GET_IT_SOURCE(uart, UART_IT_TXE))
     {
-        g_modbus_uart_tx_empty_callback(g_modbus_uart_tx_empty_context);
+        if (g_modbus_uart_tx_empty_callback != 0)
+        {
+            g_modbus_uart_tx_empty_callback(g_modbus_uart_tx_empty_context);
+        }
+
+        handled = 1;
     }
+
+    if (handled)
+    {
+#if defined(UART_FLAG_ORE)
+        if (__HAL_UART_GET_FLAG(uart, UART_FLAG_ORE))
+        {
+            __HAL_UART_CLEAR_OREFLAG(uart);
+        }
+#endif
+        (void)g_modbus_uart_rx_irq_enabled;
+        (void)g_modbus_uart_tx_irq_enabled;
+    }
+
+    return handled;
 }
 #endif

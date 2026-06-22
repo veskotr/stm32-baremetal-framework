@@ -4,6 +4,10 @@
 
 #include "hss_result.h"
 
+#ifndef HSS_ENABLE_MODBUS_DEBUG
+#define HSS_ENABLE_MODBUS_DEBUG 0
+#endif
+
 typedef enum
 {
     HSS_MODBUS_MODE_RTU = 0,
@@ -33,6 +37,13 @@ typedef struct
     hss_modbus_register_bank_t holding_registers;
     hss_modbus_register_bank_t input_registers;
 } hss_modbus_config_t;
+
+#if HSS_ENABLE_MODBUS_DEBUG
+extern volatile uint32_t hss_modbus_debug_input_cb_count;
+extern volatile uint32_t hss_modbus_debug_holding_cb_count;
+extern volatile uint32_t hss_modbus_debug_holding_write_count;
+extern volatile uint32_t hss_modbus_debug_timer_expired_count;
+#endif
 
 hss_modbus_config_t hss_modbus_default_config(uint8_t slave_id, uint32_t baudrate);
 

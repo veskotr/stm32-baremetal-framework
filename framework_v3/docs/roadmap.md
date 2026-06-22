@@ -13,9 +13,9 @@ It exists to make handoff between coding sessions easy and to help future contri
 
 `framework_v3` has moved from architecture-only notes into the first working scaffold.
 
-Current version: `0.2.0`
+Current version: see `framework_v3/version.txt`.
 
-The current implementation can sync CubeMX board metadata, generate board glue, configure external-style firmware targets, build the current examples, provide SPI/GPIO helper coverage, and generate VS Code task/debug workflows.
+The current implementation can sync CubeMX board metadata, generate and validate board glue, configure external-style firmware targets, build the current examples, provide SPI/GPIO helper coverage, generate VS Code task/debug workflows, and run the Blue Pill Modbus RTU slave against an ESP32 master.
 
 Current completed work:
 - created `framework_v3/`
@@ -36,8 +36,11 @@ Current completed work:
 - added VS Code tasks and Cortex-Debug launch generation
 - added testing strategy notes
 - verified both current examples build on Linux
+- fixed CubeMX generated-glue discovery so missing `MX_*_Init()` calls such as `MX_TIM2_Init()` are generated and validated
+- validated Blue Pill USART1 FreeModbus RTU holding-register read/write on hardware
+- moved temporary Modbus debug counters behind `HSS_ENABLE_MODBUS_DEBUG`
 
-`0.1.0` should be treated as the first scaffold baseline. `0.2.0` is the HAL-helper and developer-workflow milestone before hardware validation.
+`0.1.0` should be treated as the first scaffold baseline. `0.2.0` is the HAL-helper and developer-workflow milestone. `0.2.1` is the Modbus/CubeMX generated-glue bugfix patch after first hardware validation.
 
 ## Confirmed Design Decisions
 
@@ -201,7 +204,7 @@ Expected focus:
 - critical section helpers
 
 Status:
-- started with platform init, delay, IRQ, and basic GPIO wrappers
+- started with platform init, delay, IRQ, IRQ save/restore, and basic GPIO wrappers
 - first semantic helper added: status LED API backed by `BOARD_ROLE_STATUS_LED`
 - async UART wrapper added for blocking TX/RX and byte writes
 - console UART role added with `hss_console_*`
@@ -214,6 +217,7 @@ Status:
 - Modbus timer role wrapper added; Blue Pill maps TIM2, G0 still needs a CubeMX timer
 - SPI wrapper added for blocking write/read/transfer operations, plus optional software chip-select handling through `hss_spi_device_t`
 - GPIO wrapper now supports read/write/toggle and callback registration for CubeMX/HAL EXTI callbacks
+- IRQ helper now supports save/restore of the interrupt mask for critical sections; the FreeModbus port uses this with local nesting
 - first generic sensor SPI role macros are generated from `BOARD_ROLE_SENSOR_SPI` and optional `BOARD_ROLE_SENSOR_CS`; `hss_sensor_spi_*` provides the role-backed helper
 - synchronous USART mode is intentionally out of scope
 - existing v1 helper code can be used as reference, but should be ported deliberately
@@ -225,7 +229,8 @@ Goal:
 
 Priority order:
 1. FreeModbus STM32 port
-2. Analog Devices no-OS STM32 port
+2. MAX31865 sensor driver
+3. Analog Devices no-OS STM32 port
 
 Status:
 - FreeModbus has a first v3 port under `protocols/freemodbus/`
@@ -236,8 +241,9 @@ Status:
 - Blue Pill FreeModbus-enabled firmware configures and builds
 - Blue Pill minimal example enables FreeModbus by default
 - Blue Pill Modbus slave example added and builds
-- hardware/runtime validation is still pending
-- Analog Devices no-OS integration is not started
+- Blue Pill USART1 RTU holding-register read/write has been validated on hardware with an ESP32 master
+- MAX31865 has a first v3 driver under `drivers/max31865/`, based on the ADI no-OS driver behavior but using HSS sensor SPI roles directly
+- broader Analog Devices no-OS platform integration is not started
 
 ### Phase 6: automation and reporting
 

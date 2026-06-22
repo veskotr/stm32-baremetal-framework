@@ -5,8 +5,8 @@
       "name": "Debug",
       "displayName": "Debug Build",
       "generator": "Ninja",
-      "binaryDir": "build/debug",
-      "toolchainFile": "cmake/arm-gcc-toolchain.cmake",
+      "binaryDir": "build/example_firmware/debug",
+      "toolchainFile": "framework_v3/cmake/arm-gcc-toolchain.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
@@ -15,8 +15,8 @@
       "name": "Release",
       "displayName": "Release Build",
       "generator": "Ninja",
-      "binaryDir": "build/release",
-      "toolchainFile": "cmake/arm-gcc-toolchain.cmake",
+      "binaryDir": "build/example_firmware/release",
+      "toolchainFile": "framework_v3/cmake/arm-gcc-toolchain.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
@@ -25,11 +25,25 @@
       "name": "Size",
       "displayName": "Size Optimized",
       "generator": "Ninja",
-      "binaryDir": "build/size",
-      "toolchainFile": "cmake/arm-gcc-toolchain.cmake",
+      "binaryDir": "build/example_firmware/size",
+      "toolchainFile": "framework_v3/cmake/arm-gcc-toolchain.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "MinSizeRel"
       }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "Debug",
+      "configurePreset": "Debug"
+    },
+    {
+      "name": "Release",
+      "configurePreset": "Release"
+    },
+    {
+      "name": "Size",
+      "configurePreset": "Size"
     }
   ]
 }

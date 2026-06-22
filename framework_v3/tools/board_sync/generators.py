@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from .cubemx import (
@@ -22,6 +23,17 @@ def write_if_missing(path: Path, content: str) -> None:
     if path.exists():
         return
     path.write_text(content, encoding="utf-8")
+
+
+def discover_cubemx_init_functions(board_dir: Path) -> list[tuple[str, str, str]]:
+    discovered: list[tuple[str, str, str]] = []
+    for header in sorted((board_dir / "Core/Inc").glob("*.h")):
+        text = header.read_text(encoding="utf-8", errors="ignore")
+        for match in re.finditer(r"^\s*void\s+(MX_([A-Za-z0-9]+).*_Init)\s*\(\s*void\s*\)\s*;", text, re.MULTILINE):
+            function = match.group(1)
+            ip = match.group(2)
+            discovered.append((function, ip, header.name))
+    return discovered
 
 
 def write_board_config(board_dir: Path, values: dict[str, str]) -> Path:
@@ -89,16 +101,22 @@ def write_board_glue(board_dir: Path, values: dict[str, str]) -> Path:
             return "tim.h"
         return f"{ip.lower()}.h"
 
+    init_entries = [(function, ip, header_for_ip(ip)) for function, ip in init_functions(values)]
+    known_functions = {function for function, _, _ in init_entries}
+    for function, ip, header in discover_cubemx_init_functions(board_dir):
+        if function not in known_functions:
+            init_entries.append((function, ip, header))
+            known_functions.add(function)
+
     includes = ["main.h"]
-    for _, ip in init_functions(values):
-        header = header_for_ip(ip)
+    for _, _, header in init_entries:
         if (board_dir / "Core/Inc" / header).exists() and header not in includes:
             includes.append(header)
 
     include_lines = "\n".join(f'#include "{header}"' for header in includes)
     init_calls = "\n".join(
         f"    {function}();"
-        for function, _ in init_functions(values)
+        for function, _, _ in init_entries
         if function != "SystemClock_Config"
     )
 
@@ -169,6 +187,7 @@ set(BOARD_CPU_FLAGS
 
 set(BOARD_OPENOCD_INTERFACE interface/stlink.cfg)
 set(BOARD_OPENOCD_TARGET {openocd_target_for_family(family)})
+set(BOARD_OPENOCD_TRANSPORT hla_swd)
 
 set(BOARD_LINKER_SCRIPT ${{CMAKE_CURRENT_LIST_DIR}}/{linker.relative_to(board_dir).as_posix()})
 set(BOARD_STARTUP_SOURCE ${{CMAKE_CURRENT_LIST_DIR}}/{startup.relative_to(board_dir).as_posix()})

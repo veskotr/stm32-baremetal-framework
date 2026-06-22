@@ -3,7 +3,7 @@ include_guard(GLOBAL)
 find_program(HSS_OBJCOPY arm-none-eabi-objcopy)
 find_program(HSS_SIZE arm-none-eabi-size)
 find_program(HSS_OPENOCD openocd)
-find_program(HSS_GDB arm-none-eabi-gdb)
+find_program(HSS_GDB NAMES arm-none-eabi-gdb gdb-multiarch)
 
 set(HSS_OPENOCD_TRANSPORT "swd" CACHE STRING "OpenOCD transport")
 set(HSS_VSCODE_BUILD_TYPE "Debug" CACHE STRING "Build type used by generated VS Code configure tasks")
@@ -312,6 +312,7 @@ function(hss_register_board BOARD_NAME)
             HSS_LINKER_SCRIPT "${BOARD_LINKER_SCRIPT}"
             HSS_OPENOCD_INTERFACE "${BOARD_OPENOCD_INTERFACE}"
             HSS_OPENOCD_TARGET "${BOARD_OPENOCD_TARGET}"
+            HSS_OPENOCD_TRANSPORT "${BOARD_OPENOCD_TRANSPORT}"
             HSS_CPU_FLAGS "${BOARD_CPU_FLAGS}"
     )
 
@@ -422,16 +423,20 @@ function(hss_add_flash_target TARGET_NAME)
     get_target_property(BOARD_TARGET "${TARGET_NAME}" HSS_BOARD_TARGET)
     get_target_property(OPENOCD_INTERFACE "${BOARD_TARGET}" HSS_OPENOCD_INTERFACE)
     get_target_property(OPENOCD_TARGET "${BOARD_TARGET}" HSS_OPENOCD_TARGET)
+    get_target_property(OPENOCD_TRANSPORT "${BOARD_TARGET}" HSS_OPENOCD_TRANSPORT)
+    if (NOT OPENOCD_TRANSPORT)
+        set(OPENOCD_TRANSPORT "${HSS_OPENOCD_TRANSPORT}")
+    endif()
 
     add_custom_target("flash_${TARGET_NAME}"
             COMMAND "${HSS_OPENOCD}"
             -f "${OPENOCD_INTERFACE}"
             -f "${OPENOCD_TARGET}"
-            -c "transport select ${HSS_OPENOCD_TRANSPORT}"
+            -c "transport select ${OPENOCD_TRANSPORT}"
             -c "init"
             -c "reset halt"
             -c "program $<TARGET_FILE:${TARGET_NAME}> verify"
-            -c "reset halt"
+            -c "reset run"
             -c "exit"
             DEPENDS "${TARGET_NAME}"
             WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
@@ -448,12 +453,16 @@ function(hss_add_openocd_target TARGET_NAME)
     get_target_property(BOARD_TARGET "${TARGET_NAME}" HSS_BOARD_TARGET)
     get_target_property(OPENOCD_INTERFACE "${BOARD_TARGET}" HSS_OPENOCD_INTERFACE)
     get_target_property(OPENOCD_TARGET "${BOARD_TARGET}" HSS_OPENOCD_TARGET)
+    get_target_property(OPENOCD_TRANSPORT "${BOARD_TARGET}" HSS_OPENOCD_TRANSPORT)
+    if (NOT OPENOCD_TRANSPORT)
+        set(OPENOCD_TRANSPORT "${HSS_OPENOCD_TRANSPORT}")
+    endif()
 
     add_custom_target("openocd_${TARGET_NAME}"
             COMMAND "${HSS_OPENOCD}"
             -f "${OPENOCD_INTERFACE}"
             -f "${OPENOCD_TARGET}"
-            -c "transport select ${HSS_OPENOCD_TRANSPORT}"
+            -c "transport select ${OPENOCD_TRANSPORT}"
             -c "gdb_port 3333"
             -c "init"
             -c "reset halt"
@@ -475,6 +484,10 @@ function(hss_add_vscode_target TARGET_NAME)
     get_target_property(BOARD_NAME "${BOARD_TARGET}" HSS_BOARD_NAME)
     get_target_property(OPENOCD_INTERFACE "${BOARD_TARGET}" HSS_OPENOCD_INTERFACE)
     get_target_property(OPENOCD_TARGET "${BOARD_TARGET}" HSS_OPENOCD_TARGET)
+    get_target_property(OPENOCD_TRANSPORT "${BOARD_TARGET}" HSS_OPENOCD_TRANSPORT)
+    if (NOT OPENOCD_TRANSPORT)
+        set(OPENOCD_TRANSPORT "${HSS_OPENOCD_TRANSPORT}")
+    endif()
     hss_normalize_target_name(BOARD_TARGET_SUFFIX "${BOARD_NAME}")
 
     set(OPENOCD_PATH "openocd")
@@ -507,7 +520,7 @@ function(hss_add_vscode_target TARGET_NAME)
             "--openocd=${OPENOCD_PATH}"
             "--openocd-interface=${OPENOCD_INTERFACE}"
             "--openocd-target=${OPENOCD_TARGET}"
-            "--openocd-transport=${HSS_OPENOCD_TRANSPORT}"
+            "--openocd-transport=${OPENOCD_TRANSPORT}"
             "--gdb=${GDB_PATH}"
             COMMENT "Generating VS Code tasks and launch config for ${TARGET_NAME}"
             VERBATIM
@@ -532,6 +545,7 @@ function(hss_generate_vscode TARGET_NAME)
     get_target_property(BOARD_NAME "${BOARD_TARGET}" HSS_BOARD_NAME)
     get_target_property(OPENOCD_INTERFACE "${BOARD_TARGET}" HSS_OPENOCD_INTERFACE)
     get_target_property(OPENOCD_TARGET "${BOARD_TARGET}" HSS_OPENOCD_TARGET)
+    get_target_property(OPENOCD_TRANSPORT "${BOARD_TARGET}" HSS_OPENOCD_TRANSPORT)
     get_target_property(FIRMWARE_BINARY_DIR "${TARGET_NAME}" HSS_FIRMWARE_BINARY_DIR)
     get_target_property(FIRMWARE_OUTPUT_NAME "${TARGET_NAME}" OUTPUT_NAME)
     get_target_property(FIRMWARE_SUFFIX "${TARGET_NAME}" SUFFIX)
@@ -544,6 +558,9 @@ function(hss_generate_vscode TARGET_NAME)
     endif()
     if (NOT FIRMWARE_SUFFIX)
         set(FIRMWARE_SUFFIX ".elf")
+    endif()
+    if (NOT OPENOCD_TRANSPORT)
+        set(OPENOCD_TRANSPORT "${HSS_OPENOCD_TRANSPORT}")
     endif()
 
     hss_normalize_target_name(BOARD_TARGET_SUFFIX "${BOARD_NAME}")
@@ -580,7 +597,7 @@ function(hss_generate_vscode TARGET_NAME)
             "--openocd=${OPENOCD_PATH}"
             "--openocd-interface=${OPENOCD_INTERFACE}"
             "--openocd-target=${OPENOCD_TARGET}"
-            "--openocd-transport=${HSS_OPENOCD_TRANSPORT}"
+            "--openocd-transport=${OPENOCD_TRANSPORT}"
             "--gdb=${GDB_PATH}"
             RESULT_VARIABLE HSS_VSCODE_RESULT
     )

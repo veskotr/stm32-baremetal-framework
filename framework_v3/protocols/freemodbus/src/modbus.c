@@ -9,6 +9,11 @@
 
 static hss_modbus_config_t g_modbus_config;
 static bool g_modbus_initialized;
+#if HSS_ENABLE_MODBUS_DEBUG
+volatile uint32_t hss_modbus_debug_input_cb_count;
+volatile uint32_t hss_modbus_debug_holding_cb_count;
+volatile uint32_t hss_modbus_debug_holding_write_count;
+#endif
 
 static hss_result_t hss_modbus_result_from_mb(eMBErrorCode error)
 {
@@ -242,6 +247,10 @@ eMBErrorCode eMBRegInputCB(UCHAR *buffer, USHORT address, USHORT count)
     uint16_t api_address = 0U;
     uint16_t offset = 0U;
 
+#if HSS_ENABLE_MODBUS_DEBUG
+    hss_modbus_debug_input_cb_count++;
+#endif
+
     if (buffer == NULL || !hss_modbus_callback_address_to_api_address(address, &api_address))
     {
         return MB_EINVAL;
@@ -267,6 +276,10 @@ eMBErrorCode eMBRegHoldingCB(UCHAR *buffer, USHORT address, USHORT count, eMBReg
     uint16_t api_address = 0U;
     uint16_t offset = 0U;
 
+#if HSS_ENABLE_MODBUS_DEBUG
+    hss_modbus_debug_holding_cb_count++;
+#endif
+
     if (buffer == NULL || !hss_modbus_callback_address_to_api_address(address, &api_address))
     {
         return MB_EINVAL;
@@ -289,6 +302,9 @@ eMBErrorCode eMBRegHoldingCB(UCHAR *buffer, USHORT address, USHORT count, eMBReg
         {
             g_modbus_config.holding_registers.values[offset + i] =
                 (uint16_t)(((uint16_t)buffer[2U * i] << 8U) | buffer[(2U * i) + 1U]);
+#if HSS_ENABLE_MODBUS_DEBUG
+            hss_modbus_debug_holding_write_count++;
+#endif
         }
     }
 

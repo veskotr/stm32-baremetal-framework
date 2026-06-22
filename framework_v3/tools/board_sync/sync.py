@@ -3,7 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from .cubemx import find_one, startup_cpu
+from .cubemx_patch import patch_cubemx_user_code, validate_cubemx_user_code
 from .generators import (
+    discover_cubemx_init_functions,
     write_board_config,
     write_board_glue,
     write_manifest,
@@ -47,6 +49,7 @@ def sync_board(board_dir: Path) -> None:
 
     board_config = write_board_config(board_dir, values)
     board_glue = write_board_glue(board_dir, values)
+    patched = patch_cubemx_user_code(board_dir, values)
     manifest = write_manifest(
         board_dir=board_dir,
         values=values,
@@ -62,8 +65,16 @@ def sync_board(board_dir: Path) -> None:
         board_glue=board_glue,
     )
     roles = write_roles(board_dir, values)
+    validate_cubemx_user_code(board_dir, values)
+
+    board_glue_text = board_glue.read_text(encoding="utf-8")
+    for function, _, _ in discover_cubemx_init_functions(board_dir):
+        if function != "SystemClock_Config" and f"{function}();" not in board_glue_text:
+            raise SystemExit(f"error: {board_glue} is missing {function}()")
 
     print(f"wrote {manifest}")
     print(f"wrote {board_config}")
     print(f"wrote {board_glue}")
+    for path in patched:
+        print(f"patched {path}")
     print(f"kept {roles}")

@@ -22,3 +22,7 @@ target_link_libraries(hss_hal PUBLIC
         hss_common
         hss_framework_board
 )
+
+if(HSS_ENABLE_MODBUS_DEBUG)
+    target_compile_definitions(hss_hal PUBLIC HSS_ENABLE_MODBUS_DEBUG=1)
+endif()

@@ -254,10 +254,9 @@ void USART1_IRQHandler(void)
 {
     /* USER CODE BEGIN USART1_IRQn 0 */
 #if BOARD_UART1
-    if (__HAL_UART_GET_FLAG(&huart1, UART_FLAG_TXE) &&
-        __HAL_UART_GET_IT_SOURCE(&huart1, UART_IT_TXE))
+    if (uart1_irq_handler())
     {
-        uart1_txe_handler();
+        return;
     }
 #endif
 
@@ -269,8 +268,8 @@ void USART1_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
-__weak void uart1_txe_handler(void)
+__weak int uart1_irq_handler(void)
 {
-
+    return 0;
 }
 /* USER CODE END 1 */

@@ -56,7 +56,8 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 void clock_init(void);
-void uart1_txe_handler(void);
+int uart1_irq_handler(void);
+void board_systick_hook(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

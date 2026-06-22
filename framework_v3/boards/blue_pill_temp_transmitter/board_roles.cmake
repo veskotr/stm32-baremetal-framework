@@ -4,9 +4,9 @@
 
 # Examples:
 set(BOARD_ROLE_MODBUS_TIMER TIM2)
-# TODO: enable after CubeMX regenerates USART2 and exposes huart2.
+# TODO: enable console/debug after CubeMX regenerates USART2 and exposes huart2.
+# set(BOARD_ROLE_CONSOLE_UART USART2)
 # set(BOARD_ROLE_DEBUG_UART USART2)
-set(BOARD_ROLE_CONSOLE_UART USART1)
 set(BOARD_ROLE_MODBUS_UART USART1)
 set(BOARD_ROLE_SENSOR_SPI SPI1)
 # TODO: enable after CubeMX configures a dedicated sensor chip-select GPIO.

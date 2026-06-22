@@ -4,9 +4,9 @@ This document captures the current state of `framework_v3` for future coding ses
 
 ## Current State
 
-`framework_v3` is currently at version `0.2.0`.
+`framework_v3` reads its current version from `framework_v3/version.txt`.
 
-`0.2.0` is the current HAL-helper and developer-workflow milestone:
+The current state is the HAL-helper and developer-workflow patch release:
 
 - CubeMX-generated board projects copied into `framework_v3/boards/`
 - board sync tooling under `framework_v3/tools/board_sync/`
@@ -18,17 +18,19 @@ This document captures the current state of `framework_v3` for future coding ses
 - first common type module under `framework_v3/common/`
 - first framework-owned HAL glue module under `framework_v3/hal/`
 - first role-backed helper: status LED API generated from `board_roles.cmake`
-- SPI helpers, sensor SPI roles, and GPIO EXTI callback dispatch
-- placeholder driver module target under `framework_v3/drivers/`
+- SPI helpers, sensor SPI roles, GPIO EXTI callback dispatch, and IRQ save/restore helpers
+- first framework-owned sensor driver under `framework_v3/drivers/max31865/`
 - first opt-in protocol integration under `framework_v3/protocols/freemodbus/`
 - example firmware projects in `framework_v3/examples/`
 - docs for CubeMX sync, external project usage, examples, and testing direction
+- patch validation for CubeMX user-code hooks and generated `MX_*_Init()` calls, including the TIM2 Modbus RTU timer fix
+- hardware-validated Blue Pill USART1 FreeModbus RTU slave communication with an ESP32 master
 
 The framework is C-first. C++ should not be required by the framework core.
 
-CMake declares the version in `framework_v3/CMakeLists.txt` through `project(... VERSION 0.2.0 ...)` and exposes it internally as `HSS_FRAMEWORK_VERSION`.
+CMake reads `framework_v3/version.txt`, passes it to `project(... VERSION ...)`, and exposes it internally as `HSS_FRAMEWORK_VERSION`. The common module also generates `hss_version.h` from the same value.
 
-The common module currently defines `hss_result_t`, simple result predicates, string conversion, and a HAL status mapping helper in `hal/`. Framework APIs should return `hss_result_t` when the caller can handle a recoverable failure; fire-and-forget calls such as delay and IRQ enable/disable can stay `void`.
+The common module currently defines `hss_result_t`, simple result predicates, string conversion, and a HAL status mapping helper in `hal/`. Framework APIs should return `hss_result_t` when the caller can handle a recoverable failure; fire-and-forget calls such as delay and IRQ enable/disable can stay `void`. IRQ critical sections that need to preserve the previous interrupt mask should use `hss_irq_save()` and `hss_irq_restore()`.
 
 ## Working Boards
 
@@ -78,6 +80,8 @@ set(BOARD_ROLE_SENSOR_SPI SPI1)
 
 `BOARD_ROLE_SENSOR_SPI` generates `HSS_BOARD_HAS_SENSOR_SPI` and `HSS_BOARD_SENSOR_SPI_HANDLE`. Optional `BOARD_ROLE_SENSOR_CS` generates `HSS_BOARD_HAS_SENSOR_CS`, `HSS_BOARD_SENSOR_CS_PORT`, `HSS_BOARD_SENSOR_CS_PIN`, and `HSS_BOARD_SENSOR_CS_ACTIVE_LOW`. Both current boards map sensor SPI to `SPI1`; neither currently enables a sensor CS role because CubeMX has not configured a dedicated chip-select GPIO. Framework code can consume the role through `hss_sensor_spi_is_available()`, `hss_sensor_spi_get_device()`, `hss_sensor_spi_write()`, `hss_sensor_spi_read()`, and `hss_sensor_spi_transfer()`.
 
+The first v3 sensor driver is `hss_max31865`. It is a native HSS driver shaped after the Analog Devices no-OS MAX31865 implementation used by the v1 framework, but it uses `hss_spi_device_t` and the `BOARD_ROLE_SENSOR_SPI` / optional `BOARD_ROLE_SENSOR_CS` roles instead of requiring the full no-OS platform layer. It supports config init, register read/write, fault clearing/status, bias, auto-convert, 50/60 Hz filtering, 2/4-wire vs 3-wire mode, thresholds, one-shot raw RTD reads, and raw-to-resistance conversion.
+
 UART support is async-only by policy. `hss_uart_*` wraps normal HAL UART transmit/receive calls, and `hss_console_*` is the first role-backed UART helper. Synchronous USART mode is intentionally out of scope until a real application needs it.
 
 When `BOARD_ROLE_CONSOLE_UART` is set, framework-owned `__io_putchar()` and `__io_getchar()` route CubeMX/newlib `printf()` and `scanf()` through the console UART. The default stdio timeout is controlled by `HSS_CONSOLE_STDIO_TIMEOUT_MS`.
@@ -96,7 +100,7 @@ The target fetches upstream FreeModbus `1.6.0` with CMake `FetchContent`, builds
 
 The HSS-facing Modbus API lives in `protocols/freemodbus/include/hss_modbus.h`. It wraps FreeModbus with `hss_result_t` return values, app-owned holding/input register banks, `hss_modbus_init()`, `hss_modbus_enable()`, `hss_modbus_disable()`, `hss_modbus_poll()`, and single-register get/set helpers. Coil and discrete callbacks currently return `MB_ENOREG`; add those APIs only when an application needs them.
 
-Current FreeModbus focus is Blue Pill. The Blue Pill role setup maps `USART1` as Modbus UART and `TIM2` as Modbus timer. The Blue Pill minimal example enables FreeModbus by default in its local `CMakeLists.txt`. `examples/blue_pill_modbus_slave` is the first API-level Modbus slave example and exposes simple holding/input register arrays. Runtime validation on hardware is still needed.
+Current FreeModbus focus is Blue Pill. The Blue Pill role setup maps `USART1` as Modbus UART and `TIM2` as Modbus timer. The Blue Pill minimal example enables FreeModbus by default in its local `CMakeLists.txt`. `examples/blue_pill_modbus_slave` is the first API-level Modbus slave example and exposes simple holding/input register arrays. Direct-UART RTU holding-register read/write has been validated on Blue Pill USART1 at 9600 8N1 with an ESP32 master.
 
 Current CubeMX projects only enable `USART1`; both generated `board_config.h` files report `BOARD_UART2 0`. The desired split is `USART1` for Modbus and `USART2` for debug/console, but `BOARD_ROLE_DEBUG_UART USART2` should stay commented until CubeMX is regenerated with USART2 enabled.
 
