@@ -346,6 +346,7 @@ Install OpenOCD and reconfigure CMake. The framework creates flash/debug targets
 
 - [`docs/architecture.md`](./docs/architecture.md): framework shape and principles
 - [`docs/cubemx_workflow.md`](./docs/cubemx_workflow.md): board sync details
+- [`docs/config_system.md`](./docs/config_system.md): planned project config system
 - [`docs/external_project.md`](./docs/external_project.md): app repository usage
 - [`docs/vscode.md`](./docs/vscode.md): generated VS Code tasks and launch config
 - [`docs/testing.md`](./docs/testing.md): planned testing direction

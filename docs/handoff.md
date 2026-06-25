@@ -6,7 +6,7 @@ This document captures the current state of `HSS STM32 framework` for future cod
 
 `HSS STM32 framework` reads its current version from `version.txt`.
 
-The current state is the v0.3.0 repository cleanup and HAL-helper milestone:
+The current state is the v0.4.0 project config system milestone:
 
 - external/app-owned CubeMX board projects discovered through `HSS_BOARD_PATHS`
 - temporary reference board projects in `examples/boards/`
@@ -26,12 +26,15 @@ The current state is the v0.3.0 repository cleanup and HAL-helper milestone:
 - docs for CubeMX sync, external project usage, examples, and testing direction
 - patch validation for CubeMX user-code hooks and generated `MX_*_Init()` calls, including the TIM2 Modbus RTU timer fix
 - hardware-validated Blue Pill USART1 FreeModbus RTU slave communication with an ESP32 master
+- profile-aware HSS config system with generated C/CMake/meta outputs and config-driven FreeModbus/MAX31865 feature selection
 
 The framework is C-first. C++ should not be required by the framework core.
 
 CMake reads `version.txt`, passes it to `project(... VERSION ...)`, and exposes it internally as `HSS_FRAMEWORK_VERSION`. The common module also generates `hss_version.h` from the same value.
 
 The common module currently defines `hss_result_t`, simple result predicates, string conversion, and a HAL status mapping helper in `hal/`. Framework APIs should return `hss_result_t` when the caller can handle a recoverable failure; fire-and-forget calls such as delay and IRQ enable/disable can stay `void`. IRQ critical sections that need to preserve the previous interrupt mask should use `hss_irq_save()` and `hss_irq_restore()`.
+
+The config system has a first implementation. Firmware targets can pass `CONFIG hss.conf` to `hss_add_firmware()`, select ordered overlays through `PROFILES` or `HSS_CONFIG_PROFILES`, mark missing overlays optional through `OPTIONAL_PROFILES` or `HSS_CONFIG_OPTIONAL_PROFILES`, add explicit overlay files through `PROFILE_FILES` or `HSS_CONFIG_PROFILE_FILES`, and consume generated `hss_config.h`, `hss_config.cmake`, and `hss_config.meta` files under the build directory. Known `HSS_` keys are validated. Only C-facing custom keys are emitted to `hss_config.h`: `APP_` keys become `CONFIG_APP_*`, and existing `CONFIG_` keys pass through. Other custom keys remain available to CMake/meta only. Unparsable non-empty lines are logged as warnings and ignored. The Blue Pill Modbus slave example uses `hss.conf`, `hss-dev.conf`, `hss-release.conf`, and `hss-hw_rev_b.conf`.
 
 ## Working Boards
 
@@ -91,7 +94,13 @@ RS485 is treated as an async UART transport variant. The generic `hss_uart_rs485
 
 `hss_modbus_uart_*` is a role-backed transport wrapper for FreeModbus. It uses manual RS485 DE when `BOARD_ROLE_MODBUS_RS485_DE` is configured; otherwise it uses plain UART transmit/receive. It also exposes the interrupt-driven serial hooks FreeModbus needs: RX callback registration, TX-empty callback registration, RX interrupt enable/disable, TX-empty interrupt enable/disable, and direct RX/TX data-register byte access.
 
-FreeModbus is now ported into `protocols/freemodbus/` as an opt-in CMake target. Enable it with:
+FreeModbus is now ported into `protocols/freemodbus/` as an opt-in target. Enable it from target config:
+
+```text
+HSS_ENABLE_FREEMODBUS=y
+```
+
+or with the compatibility CMake option:
 
 ```sh
 -DHSS_ENABLE_FREEMODBUS=ON

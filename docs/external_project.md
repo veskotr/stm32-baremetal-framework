@@ -70,6 +70,77 @@ cmake --build build/debug
 
 CMake requires `CMAKE_TOOLCHAIN_FILE` before the top-level `project()` enables C/ASM languages. A FetchContent download cannot provide that file for the same first configure unless a separate bootstrap or app-local shim already exists. The official framework toolchain is `arm-none-eabi-gcc`; MCU-specific flags, startup file, linker script, MCU define, HAL paths, CMSIS paths, and OpenOCD target come from generated board metadata.
 
+## Project Config
+
+Firmware targets can use an HSS config file with optional profile overlays:
+
+```text
+my_app/
+  CMakeLists.txt
+  hss.conf
+  hss-dev.conf
+  hss-release.conf
+```
+
+```cmake
+hss_add_firmware(my_app
+        BOARD my_board
+        CONFIG hss.conf
+        src/main.c
+)
+```
+
+Select active profiles from CMake:
+
+```sh
+cmake -S . -B build/dev \
+  -DCMAKE_TOOLCHAIN_FILE=third_party/stm32-baremetal-framework/cmake/arm-gcc-toolchain.cmake \
+  -DHSS_CONFIG_PROFILES=dev
+```
+
+Profiles are loaded after the base config in order. For example,
+`-DHSS_CONFIG_PROFILES=release\;hw_rev_b` loads `hss.conf`,
+`hss-release.conf`, and `hss-hw_rev_b.conf`, with later files overriding
+earlier values.
+
+Profiles that may be absent can be listed as optional:
+
+```sh
+-DHSS_CONFIG_PROFILES=release\;local -DHSS_CONFIG_OPTIONAL_PROFILES=local
+```
+
+Additional profile files can be loaded explicitly:
+
+```cmake
+hss_add_firmware(my_app
+        BOARD my_board
+        CONFIG hss.conf
+        PROFILES release
+        PROFILE_FILES boards/rev_b.conf
+        src/main.c
+)
+```
+
+The config generator writes target-local files under the build directory:
+
+- `hss_config.h`
+- `hss_config.cmake`
+- `hss_config.meta`
+
+Application and firmware code can include:
+
+```c
+#include "hss_config.h"
+```
+
+Framework keys use the `HSS_` prefix and are validated when known. C-facing
+custom application properties should use `APP_` or `CONFIG_`. `APP_` values are
+emitted as `CONFIG_APP_<NAME>` macros, so `APP_DEVICE_NAME` becomes
+`CONFIG_APP_DEVICE_NAME`. Other custom keys remain available to CMake and
+metadata but stay out of `hss_config.h`.
+
+For details, see [`docs/config_system.md`](./config_system.md).
+
 ## Board Lookup
 
 `hss_add_firmware(... BOARD <board> ...)` and `hss_select_board(<board>)` resolve boards in this order:

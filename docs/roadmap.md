@@ -15,7 +15,7 @@ It exists to make handoff between coding sessions easy and to help future contri
 
 Current version: see `version.txt`.
 
-The current implementation can sync CubeMX board metadata, generate and validate board glue, configure external-style firmware targets, build the current examples, provide SPI/GPIO helper coverage, generate VS Code task/debug workflows, and run the Blue Pill Modbus RTU slave against an ESP32 master.
+The current implementation can sync CubeMX board metadata, generate and validate board glue, configure external-style firmware targets, build the current examples, provide SPI/GPIO helper coverage, generate VS Code task/debug workflows, run the Blue Pill Modbus RTU slave against an ESP32 master, and configure firmware targets through profile-aware HSS config files.
 
 Current completed work:
 - promoted the current framework implementation to the repository root
@@ -39,8 +39,9 @@ Current completed work:
 - fixed CubeMX generated-glue discovery so missing `MX_*_Init()` calls such as `MX_TIM2_Init()` are generated and validated
 - validated Blue Pill USART1 FreeModbus RTU holding-register read/write on hardware
 - moved temporary Modbus debug counters behind `HSS_ENABLE_MODBUS_DEBUG`
+- added the v0.4.0 project config system with base config files, profile overlays, optional profiles, explicit profile files, generated C/CMake/meta outputs, C-facing custom macros, schema help, parser tests, and config-driven FreeModbus/MAX31865 feature selection
 
-`0.1.0` should be treated as the first scaffold baseline. `0.2.0` is the HAL-helper and developer-workflow milestone. `0.2.1` is the Modbus/CubeMX generated-glue bugfix patch after first hardware validation. `0.3.0` is the repository cleanup release that promotes the framework to the root and moves the temp transmitter pilot into its own project.
+`0.1.0` should be treated as the first scaffold baseline. `0.2.0` is the HAL-helper and developer-workflow milestone. `0.2.1` is the Modbus/CubeMX generated-glue bugfix patch after first hardware validation. `0.3.0` is the repository cleanup release that promotes the framework to the root and moves the temp transmitter pilot into its own project. `0.4.0` is the project config system release.
 
 ## Confirmed Design Decisions
 
@@ -172,14 +173,14 @@ Goal:
 - provide a lightweight project config flow similar in spirit to ESP-IDF
 
 Tasks:
-- define config file format
-- add config generator script
-- generate `app_config.h`
-- optionally generate CMake config values
-- document config usage
+- define config file format and profile overlay model: done in `docs/config_system.md`
+- add config generator script: done with `tools/generate_config.py` and `tools/config/`
+- generate `hss_config.h`: done
+- generate CMake config values: done with `hss_config.cmake`
+- document config usage: started in `docs/config_system.md` and `docs/external_project.md`
 
 Status:
-- not started
+- first implementation exists with base config, ordered profiles, optional profiles, explicit profile files, custom `CONFIG_` macros, generated metadata, CMake integration, FreeModbus/MAX31865 feature selection, example configs, and parser/generator tests
 
 ### Phase 3.5: common types
 
@@ -220,6 +221,7 @@ Status:
 - GPIO wrapper now supports read/write/toggle and callback registration for CubeMX/HAL EXTI callbacks
 - IRQ helper now supports save/restore of the interrupt mask for critical sections; the FreeModbus port uses this with local nesting
 - first generic sensor SPI role macros are generated from `BOARD_ROLE_SENSOR_SPI` and optional `BOARD_ROLE_SENSOR_CS`; `hss_sensor_spi_*` provides the role-backed helper
+- planned next SPI helper: async SPI transfers driven by DMA and/or interrupts, with completion/error callbacks and CubeMX-owned DMA/NVIC setup
 - synchronous USART mode is intentionally out of scope
 - existing v1 helper code can be used as reference, but should be ported deliberately
 
@@ -235,7 +237,7 @@ Priority order:
 
 Status:
 - FreeModbus has a first v3 port under `protocols/freemodbus/`
-- FreeModbus is opt-in with `HSS_ENABLE_FREEMODBUS=ON`
+- FreeModbus is opt-in with `HSS_ENABLE_FREEMODBUS=ON` or target config `HSS_ENABLE_FREEMODBUS=y`
 - upstream FreeModbus `1.6.0` is fetched with CMake `FetchContent`
 - port files are backed by `hss_modbus_uart_*`, `hss_modbus_timer_*`, and `hss_irq_*`
 - HSS-facing Modbus API added with `hss_modbus_*`, app-owned holding/input register banks, and `hss_result_t` returns

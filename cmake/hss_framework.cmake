@@ -8,8 +8,13 @@ find_program(HSS_GDB NAMES arm-none-eabi-gdb gdb-multiarch)
 set(HSS_OPENOCD_TRANSPORT "swd" CACHE STRING "OpenOCD transport")
 set(HSS_VSCODE_BUILD_TYPE "Debug" CACHE STRING "Build type used by generated VS Code configure tasks")
 set(HSS_BOARD_PATHS "" CACHE STRING "Semicolon-separated directories containing HSS board folders")
+set(HSS_CONFIG_PROFILES "" CACHE STRING "Semicolon-separated HSS config profiles")
+set(HSS_CONFIG_OPTIONAL_PROFILES "" CACHE STRING "Semicolon-separated HSS config profiles that may be missing")
+set(HSS_CONFIG_PROFILE_FILES "" CACHE STRING "Semicolon-separated additional HSS config profile files")
 option(HSS_BOARD_AUTO_SYNC "Run board sync during configure when board metadata is missing" ON)
 option(HSS_BOARD_SYNC_BEFORE_BUILD "Run board sync before compiling the selected board" ON)
+
+include("${CMAKE_CURRENT_LIST_DIR}/hss_config.cmake")
 
 function(hss_normalize_target_name OUT_VAR NAME)
     string(MAKE_C_IDENTIFIER "${NAME}" NORMALIZED)
@@ -442,7 +447,12 @@ function(hss_require_selected_board)
 endfunction()
 
 function(hss_add_firmware TARGET_NAME)
-    cmake_parse_arguments(ARG "GENERATE_VSCODE" "BOARD" "SOURCES" ${ARGN})
+    cmake_parse_arguments(ARG
+            "GENERATE_VSCODE"
+            "BOARD;CONFIG"
+            "SOURCES;PROFILES;OPTIONAL_PROFILES;PROFILE_FILES"
+            ${ARGN}
+    )
 
     if (ARG_BOARD)
         hss_select_board("${ARG_BOARD}")
@@ -452,6 +462,33 @@ function(hss_add_firmware TARGET_NAME)
     set(FIRMWARE_SOURCES ${ARG_SOURCES} ${ARG_UNPARSED_ARGUMENTS})
     if (NOT FIRMWARE_SOURCES)
         message(FATAL_ERROR "hss_add_firmware(${TARGET_NAME}) requires at least one source file")
+    endif()
+
+    set(HSS_TARGET_CONFIG_INCLUDE_DIR "")
+    set(HSS_TARGET_CONFIG_COMPILE_DEFINITIONS "")
+    if (ARG_CONFIG)
+        set(ACTIVE_CONFIG_PROFILES ${ARG_PROFILES})
+        if (NOT ACTIVE_CONFIG_PROFILES)
+            set(ACTIVE_CONFIG_PROFILES ${HSS_CONFIG_PROFILES})
+        endif()
+        set(ACTIVE_OPTIONAL_CONFIG_PROFILES ${ARG_OPTIONAL_PROFILES})
+        if (NOT ACTIVE_OPTIONAL_CONFIG_PROFILES)
+            set(ACTIVE_OPTIONAL_CONFIG_PROFILES ${HSS_CONFIG_OPTIONAL_PROFILES})
+        endif()
+        set(ACTIVE_CONFIG_PROFILE_FILES ${ARG_PROFILE_FILES})
+        if (NOT ACTIVE_CONFIG_PROFILE_FILES)
+            set(ACTIVE_CONFIG_PROFILE_FILES ${HSS_CONFIG_PROFILE_FILES})
+        endif()
+        hss_generate_target_config(
+                "${TARGET_NAME}"
+                "${ARG_CONFIG}"
+                HSS_TARGET_CONFIG_INCLUDE_DIR
+                PROFILES ${ACTIVE_CONFIG_PROFILES}
+                OPTIONAL_PROFILES ${ACTIVE_OPTIONAL_CONFIG_PROFILES}
+                PROFILE_FILES ${ACTIVE_CONFIG_PROFILE_FILES}
+        )
+        set(HSS_TARGET_CONFIG_COMPILE_DEFINITIONS ${HSS_CONFIG_COMPILE_DEFINITIONS})
+        message(STATUS "Generated HSS config for ${TARGET_NAME} with profiles: ${HSS_CONFIG_ACTIVE_PROFILES}")
     endif()
 
     add_executable("${TARGET_NAME}"
@@ -480,6 +517,13 @@ function(hss_add_firmware TARGET_NAME)
             $<$<CONFIG:Release>:-O2 -DNDEBUG>
             $<$<CONFIG:MinSizeRel>:-Os -DNDEBUG>
     )
+
+    if (HSS_TARGET_CONFIG_INCLUDE_DIR)
+        target_include_directories("${TARGET_NAME}" PRIVATE "${HSS_TARGET_CONFIG_INCLUDE_DIR}")
+    endif()
+    if (HSS_TARGET_CONFIG_COMPILE_DEFINITIONS)
+        target_compile_definitions("${TARGET_NAME}" PRIVATE ${HSS_TARGET_CONFIG_COMPILE_DEFINITIONS})
+    endif()
 
     target_link_options("${TARGET_NAME}" PRIVATE
             ${HSS_CPU_FLAGS}
