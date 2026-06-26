@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Run Python tests
+        run: python3 -m unittest discover tools/config/tests
+
+  host-c-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Configure host tests
+        run: cmake -S . -B build/host-tests -G Ninja -DHSS_ENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+      - name: Build host tests
+        run: cmake --build build/host-tests
+      - name: Run host tests
+        run: ctest --test-dir build/host-tests --output-on-failure
+
+  firmware-builds:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ARM build tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build gcc-arm-none-eabi
+      - name: Configure Blue Pill example
+        run: >
+          cmake -S examples/blue_pill_minimal
+          -B build/examples/blue_pill_minimal
+          -G Ninja
+          -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/cmake/arm-gcc-toolchain.cmake
+          -DCMAKE_BUILD_TYPE=Debug
+      - name: Build Blue Pill example
+        run: cmake --build build/examples/blue_pill_minimal
+      - name: Configure STM32G0 example
+        run: >
+          cmake -S examples/stm32g0_minimal
+          -B build/examples/stm32g0_minimal
+          -G Ninja
+          -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/cmake/arm-gcc-toolchain.cmake
+          -DCMAKE_BUILD_TYPE=Debug
+      - name: Build STM32G0 example
+        run: cmake --build build/examples/stm32g0_minimal

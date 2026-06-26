@@ -11,6 +11,45 @@ The framework should eventually support:
 - hardware-in-the-loop smoke tests
 - later factory automated tests
 
+## Current Shape
+
+The framework has two normal test lanes:
+
+- native host tests for fast C logic and fake peripheral behavior
+- ARM firmware build checks for real board/example integration
+
+Hardware-in-the-loop tests are a later optional lane.
+
+Host tests are enabled with:
+
+```sh
+cmake -S . -B build/host-tests -G Ninja -DHSS_ENABLE_TESTS=ON
+cmake --build build/host-tests
+ctest --test-dir build/host-tests --output-on-failure
+```
+
+The framework exposes:
+
+```cmake
+hss_add_host_test(my_unit_tests
+        SOURCES tests/test_state_machine.c src/state_machine.c
+)
+
+hss_add_host_integration_test(my_integration_tests
+        SOURCES tests/test_spi_flow.c src/sensor_logic.c
+        LIBRARIES hss_hal_host
+)
+```
+
+`hss_add_host_test()` registers a CTest test labeled `unit`.
+`hss_add_host_integration_test()` registers a CTest test labeled `integration`.
+
+Host tests can link:
+
+- `hss_test_unity`: bundled lightweight Unity-style test runner
+- `hss_host_stm32_fakes`: host fake STM32/HAL types and fake GPIO/SPI hooks
+- `hss_hal_host`: host-buildable GPIO/SPI/EXTI HAL helper subset
+
 ## Direction
 
 The firmware should be structured so useful logic can run without an STM32 target.
@@ -37,17 +76,43 @@ This does not mean simulating every STM32 peripheral. The first useful version s
 
 Application repositories should have an easy way to add tests without modifying the framework repo.
 
-Desired future shape:
+FetchContent is the preferred dependency path:
 
 ```cmake
-add_subdirectory(third_party/stm32-baremetal-framework)
+include(FetchContent)
 
-hss_add_firmware(my_app BOARD my_board src/main.c)
-hss_add_host_test(my_app_unit_tests tests/test_state_machine.c src/state_machine.c)
-hss_add_host_integration_test(my_app_integration tests/test_modbus_flow.c)
+FetchContent_Declare(
+        hss_framework
+        GIT_REPOSITORY https://github.com/veskotr/stm32-baremetal-framework.git
+        GIT_TAG v0.5.0
+)
+FetchContent_MakeAvailable(hss_framework)
 ```
 
-The exact APIs are not final, but the goal is clear: users should be able to test their own applications with small CMake calls.
+Test shape:
+
+```cmake
+hss_add_firmware(my_app BOARD my_board src/main.c)
+hss_add_host_test(my_app_unit_tests SOURCES tests/test_state_machine.c src/state_machine.c)
+hss_add_host_integration_test(my_app_integration SOURCES tests/test_modbus_flow.c)
+```
+
+User CI should normally use two build directories:
+
+- `build/host-tests`: native compiler, `-DHSS_ENABLE_TESTS=ON`, then CTest
+- `build/firmware`: ARM compiler/toolchain, firmware targets only
+
+Until a future VS Code extension owns toolchain setup, FetchContent firmware projects should keep a tiny app-local ARM toolchain file or CMake preset. HSS still owns board flags, linker script, board metadata, and post-build artifacts.
+
+## Release Workflow
+
+The repository has a manual GitHub Actions release workflow:
+
+- open GitHub Actions
+- select `Release`
+- click `Run workflow`
+
+The workflow reads `version.txt`, creates an annotated tag named `v<version>`, pushes the tag, and creates a GitHub Release for that tag. The release notes contain the latest commit message from the selected branch/ref. The workflow fails if the tag already exists, so bump `version.txt` before running it for a new release.
 
 ## Factory Tests
 

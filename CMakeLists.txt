@@ -16,6 +16,8 @@ set(HSS_FRAMEWORK_ROOT "${HSS_FRAMEWORK_ROOT}" CACHE INTERNAL "HSS framework roo
 set(HSS_FRAMEWORK_VERSION "${HSS_FRAMEWORK_VERSION}" CACHE INTERNAL "HSS framework version" FORCE)
 
 option(HSS_ENABLE_MODBUS_DEBUG "Build Modbus debug counters" OFF)
+option(HSS_ENABLE_TESTS "Enable HSS host test helpers and support targets" OFF)
+option(HSS_BUILD_FRAMEWORK_TESTS "Build HSS framework self-tests when tests are enabled" ${PROJECT_IS_TOP_LEVEL})
 
 include("${HSS_FRAMEWORK_ROOT}/cmake/hss_framework.cmake")
 
@@ -34,3 +36,10 @@ target_link_libraries(hss_framework INTERFACE
         hss_drivers
         hss_protocols
 )
+
+if(HSS_ENABLE_TESTS)
+    include("${HSS_FRAMEWORK_ROOT}/cmake/hss_testing.cmake")
+    if(HSS_BUILD_FRAMEWORK_TESTS)
+        add_subdirectory(tests)
+    endif()
+endif()

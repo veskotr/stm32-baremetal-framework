@@ -6,7 +6,7 @@ This document captures the current state of `HSS STM32 framework` for future cod
 
 `HSS STM32 framework` reads its current version from `version.txt`.
 
-The current state is the v0.4.0 project config system milestone:
+The current state is v0.5.0 candidate work:
 
 - external/app-owned CubeMX board projects discovered through `HSS_BOARD_PATHS`
 - temporary reference board projects in `examples/boards/`
@@ -27,6 +27,10 @@ The current state is the v0.4.0 project config system milestone:
 - patch validation for CubeMX user-code hooks and generated `MX_*_Init()` calls, including the TIM2 Modbus RTU timer fix
 - hardware-validated Blue Pill USART1 FreeModbus RTU slave communication with an ESP32 master
 - profile-aware HSS config system with generated C/CMake/meta outputs and config-driven FreeModbus/MAX31865 feature selection
+- FetchContent-first external project documentation
+- native host test helpers and framework self-tests enabled by `HSS_ENABLE_TESTS=ON`
+- host fake STM32/HAL support for GPIO/SPI tests
+- GitHub Actions workflow for Python tests, host C tests, and firmware build checks
 
 The framework is C-first. C++ should not be required by the framework core.
 
@@ -35,6 +39,67 @@ CMake reads `version.txt`, passes it to `project(... VERSION ...)`, and exposes 
 The common module currently defines `hss_result_t`, simple result predicates, string conversion, and a HAL status mapping helper in `hal/`. Framework APIs should return `hss_result_t` when the caller can handle a recoverable failure; fire-and-forget calls such as delay and IRQ enable/disable can stay `void`. IRQ critical sections that need to preserve the previous interrupt mask should use `hss_irq_save()` and `hss_irq_restore()`.
 
 The config system has a first implementation. Firmware targets can pass `CONFIG hss.conf` to `hss_add_firmware()`, select ordered overlays through `PROFILES` or `HSS_CONFIG_PROFILES`, mark missing overlays optional through `OPTIONAL_PROFILES` or `HSS_CONFIG_OPTIONAL_PROFILES`, add explicit overlay files through `PROFILE_FILES` or `HSS_CONFIG_PROFILE_FILES`, and consume generated `hss_config.h`, `hss_config.cmake`, and `hss_config.meta` files under the build directory. Known `HSS_` keys are validated. Only C-facing custom keys are emitted to `hss_config.h`: `APP_` keys become `CONFIG_APP_*`, and existing `CONFIG_` keys pass through. Other custom keys remain available to CMake/meta only. Unparsable non-empty lines are logged as warnings and ignored. The Blue Pill Modbus slave example uses `hss.conf`, `hss-dev.conf`, `hss-release.conf`, and `hss-hw_rev_b.conf`.
+
+The first host-test scaffold is implemented. `HSS_ENABLE_TESTS=ON` loads `cmake/hss_testing.cmake`, enables CTest, and provides:
+
+- `hss_add_host_test(<name> SOURCES ... [LIBRARIES ...] [INCLUDE_DIRS ...] [DEFINITIONS ...])`
+- `hss_add_host_integration_test(<name> SOURCES ... [LIBRARIES ...] [INCLUDE_DIRS ...] [DEFINITIONS ...])`
+- `hss_test_unity`: bundled lightweight Unity-style runner under `tests/support/unity/`
+- `hss_host_stm32_fakes`: fake `main.h`, GPIO, SPI, and HAL status behavior under `tests/support/host_stm32_fakes/`
+- `hss_hal_host`: host-buildable subset of HAL helpers, currently GPIO, SPI, and EXTI
+
+When HSS is the top-level project, `HSS_BUILD_FRAMEWORK_TESTS` defaults to `ON` and adds framework self-tests under `tests/`. When consumed by an app through FetchContent, `HSS_BUILD_FRAMEWORK_TESTS` defaults to `OFF`; apps still get the helper functions and support targets when `HSS_ENABLE_TESTS=ON`.
+
+Current framework self-tests cover:
+
+- `hss_result_t` predicates and string conversion
+- GPIO invalid arguments, fake read/write/toggle state, EXTI callback registration/dispatch
+- SPI invalid arguments, HAL status mapping, fake transfer state, software chip-select active-low/active-high behavior, deselect-after-error behavior
+
+The test scaffold is intentionally a foundation, not full framework coverage. UART, timers, console, platform, IRQ, FreeModbus, MAX31865, CMake config integration tests, async SPI, and hardware-in-the-loop remain future work.
+
+The next framework blockers from the temp-transmitter pilot are being handled as generic board capabilities, not product-specific roles. Instead of adding a hard-coded `sensor_drdy` role, the framework now supports named generic EXTI roles such as `BOARD_ROLE_EXTI_MAX31865_DRDY`; app firmware/config owns the meaning of that label. SPI support still has the older `sensor_spi` compatibility path, but it now has explicit role-configuration and deselect helpers for the temp-transmitter bring-up. Longer term, SPI should move toward one bus with multiple declared devices/chip-selects rather than one special sensor CS. Existing roles such as `BOARD_ROLE_STATUS_LED` can remain for compatibility, but new feature work should avoid expanding product-specific semantic roles until the generic role model is clearer.
+
+Generic EXTI role support:
+
+```cmake
+set(BOARD_ROLE_EXTI_MAX31865_DRDY PA3)
+set(BOARD_ROLE_EXTI_MAX31865_DRDY_ACTIVE_LOW ON)
+set(BOARD_ROLE_EXTI_MAX31865_DRDY_TRIGGER falling)
+```
+
+This generates `HSS_BOARD_EXTI_MAX31865_DRDY_*` macros and `HSS_BOARD_EXTI_MAX31865_DRDY_INPUT`. It also generates a board-specific IRQ shim source under the build directory and adds it to the board object target. Verified mappings:
+
+- STM32F1/Blue Pill PA3 -> `EXTI3_IRQHandler` / `EXTI3_IRQn`
+- STM32G0 PA3 -> `EXTI2_3_IRQHandler` / `EXTI2_3_IRQn`
+
+Generic EXTI helper API:
+
+```c
+#include "hss_board_roles.h"
+#include "hss_exti.h"
+
+hss_exti_input_t drdy = HSS_BOARD_EXTI_MAX31865_DRDY_INPUT;
+hss_exti_input_register_callback(&drdy, app_sensor_drdy_callback, NULL);
+hss_exti_input_enable(&drdy);
+```
+
+Sensor SPI compatibility helpers:
+
+```c
+hss_sensor_spi_deselect();
+hss_sensor_spi_configure_for_role();
+```
+
+Optional role properties currently supported:
+
+```cmake
+set(BOARD_ROLE_SENSOR_CS_IDLE inactive)
+set(BOARD_ROLE_SENSOR_SPI_MODE 3)
+set(BOARD_ROLE_SENSOR_SPI_BAUD_PRESCALER 16)
+set(BOARD_ROLE_SENSOR_SPI_NSS software)
+set(BOARD_ROLE_SENSOR_SPI_FIRST_BIT msb)
+```
 
 ## Working Boards
 
@@ -122,6 +187,30 @@ GPIO support now includes read/write/toggle and a small EXTI callback registry. 
 
 ## Verified Builds
 
+The host-test lane was configured, built, and run successfully:
+
+```sh
+cmake -S . -B build/host-tests -G Ninja -DHSS_ENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+cmake --build build/host-tests
+ctest --test-dir build/host-tests --output-on-failure
+```
+
+CTest result:
+
+- `hss_result_tests`: passed
+- `hss_gpio_host_tests`: passed
+- `hss_spi_host_tests`: passed
+
+The Python config tests were also run successfully:
+
+```sh
+python3 -m unittest discover tools/config/tests
+```
+
+Result: 12 tests passed.
+
+Firmware build CI is documented and added in `.github/workflows/ci.yml`. The ARM firmware build lane has now been run locally for the Blue Pill and STM32G0 minimal examples after adding the test scaffold. Hardware validation is still intentionally pending.
+
 The following examples were configured and built successfully on Linux with system `arm-none-eabi-gcc`, Ninja, CMake, and system `openocd` available:
 
 ```sh
@@ -179,7 +268,7 @@ This generated `.elf`, `.bin`, `.hex`, `.map`, and size output.
 
 ## Intended User Workflow
 
-For a real application repository, the framework should be added through `FetchContent`, as a submodule, or as a copied dependency. The application owns its board directories.
+For a real application repository, the framework should preferably be added through CMake `FetchContent`. A submodule or copied dependency remains supported. The application owns its board directories.
 
 Example:
 
@@ -188,7 +277,14 @@ cmake_minimum_required(VERSION 3.20)
 
 project(my_app C ASM)
 
-add_subdirectory(third_party/stm32-baremetal-framework)
+include(FetchContent)
+
+FetchContent_Declare(
+        hss_framework
+        GIT_REPOSITORY https://github.com/veskotr/stm32-baremetal-framework.git
+        GIT_TAG v0.5.0
+)
+FetchContent_MakeAvailable(hss_framework)
 
 set(HSS_BOARD_PATHS "${CMAKE_CURRENT_LIST_DIR}/boards" CACHE STRING "HSS board search paths")
 
@@ -197,6 +293,8 @@ hss_add_firmware(my_app
         src/main.c
 )
 ```
+
+FetchContent firmware projects should keep a tiny app-local ARM GCC toolchain file or preset because CMake needs `CMAKE_TOOLCHAIN_FILE` before FetchContent downloads HSS. The future VS Code extension is expected to make this smoother by owning framework/toolchain setup.
 
 The framework repo may contain examples and framework tests, but production applications should not be added to this repository.
 
@@ -223,12 +321,17 @@ The bundled Windows OpenOCD tools from older framework versions are not used by 
 
 Good next implementation tasks:
 
-1. Validate `examples/blue_pill_modbus_slave` RX/TX and TIM2 timeout behavior on hardware.
-2. Decide whether the FreeModbus dependency should stay as `FetchContent` or become a vendored/submodule dependency for offline builds.
-3. Add Modbus coil/discrete APIs when an application needs those register types.
-4. Add a driver integration on top of the new sensor SPI role, once the real sensor and chip-select pin are finalized.
-5. Add a small host-test scaffold so C framework logic can run on desktop.
-6. Validate the generated VS Code debug launch on hardware with Cortex-Debug and OpenOCD.
-7. Add memory/reporting improvements beyond `arm-none-eabi-size`.
+1. Validate the current firmware examples on hardware after the test-scaffold changes.
+2. Stabilize the test scaffold as the baseline for new feature work in version control.
+3. Migrate temp-transmitter to `BOARD_ROLE_EXTI_MAX31865_DRDY`, `hss_exti_input_*`, `hss_sensor_spi_deselect()`, and `hss_sensor_spi_configure_for_role()`.
+4. Implement generic SPI bus/device metadata for multiple chip-selects and inactive CS handling.
+5. Add board-sync validation/checklist diagnostics for EXTI mode, IRQ enablement, SPI mode, and CS idle level.
+6. Add targeted tests for each generic capability as it lands, then return to broader framework test completion.
+7. Validate `examples/blue_pill_modbus_slave` RX/TX and TIM2 timeout behavior on hardware.
+8. Add host coverage for UART, timers, console, IRQ/platform helpers, MAX31865, and selected FreeModbus adapter behavior.
+9. Start async SPI planning/implementation using the new fake SPI layer as the first test-driven feature.
+10. Add Modbus coil/discrete APIs when an application needs those register types.
+11. Validate the generated VS Code debug launch on hardware with Cortex-Debug and OpenOCD.
+12. Add memory/reporting improvements beyond `arm-none-eabi-size`.
 
 Keep changes small and verify with both examples after changing CMake, sync tooling, or generated board files.

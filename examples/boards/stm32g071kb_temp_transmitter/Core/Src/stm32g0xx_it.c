@@ -52,6 +52,10 @@
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+__attribute__((weak)) void board_systick_hook(void)
+{
+    /* default: do nothing */
+}
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -130,6 +134,7 @@ void SysTick_Handler(void)
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
 
+board_systick_hook();
   /* USER CODE END SysTick_IRQn 1 */
 }
 

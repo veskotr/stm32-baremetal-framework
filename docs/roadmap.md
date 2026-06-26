@@ -15,7 +15,7 @@ It exists to make handoff between coding sessions easy and to help future contri
 
 Current version: see `version.txt`.
 
-The current implementation can sync CubeMX board metadata, generate and validate board glue, configure external-style firmware targets, build the current examples, provide SPI/GPIO helper coverage, generate VS Code task/debug workflows, run the Blue Pill Modbus RTU slave against an ESP32 master, and configure firmware targets through profile-aware HSS config files.
+The current implementation can sync CubeMX board metadata, generate and validate board glue, configure external-style firmware targets, build the current examples, provide SPI/GPIO helper coverage, generate VS Code task/debug workflows, run the Blue Pill Modbus RTU slave against an ESP32 master, configure firmware targets through profile-aware HSS config files, and run the first host C framework tests through CTest.
 
 Current completed work:
 - promoted the current framework implementation to the repository root
@@ -40,8 +40,10 @@ Current completed work:
 - validated Blue Pill USART1 FreeModbus RTU holding-register read/write on hardware
 - moved temporary Modbus debug counters behind `HSS_ENABLE_MODBUS_DEBUG`
 - added the v0.4.0 project config system with base config files, profile overlays, optional profiles, explicit profile files, generated C/CMake/meta outputs, C-facing custom macros, schema help, parser tests, and config-driven FreeModbus/MAX31865 feature selection
+- added the v0.5.0 test/CI and generic board-capability work: `HSS_ENABLE_TESTS`, `hss_add_host_test`, `hss_add_host_integration_test`, a bundled lightweight Unity-style runner, host STM32 GPIO/SPI/EXTI fakes, `hss_hal_host`, initial result/GPIO/SPI/EXTI tests, generic EXTI roles, and sensor SPI compatibility helpers
+- added FetchContent-first external-project documentation and GitHub Actions CI lanes for Python tests, host C tests, and firmware build checks
 
-`0.1.0` should be treated as the first scaffold baseline. `0.2.0` is the HAL-helper and developer-workflow milestone. `0.2.1` is the Modbus/CubeMX generated-glue bugfix patch after first hardware validation. `0.3.0` is the repository cleanup release that promotes the framework to the root and moves the temp transmitter pilot into its own project. `0.4.0` is the project config system release.
+`0.1.0` should be treated as the first scaffold baseline. `0.2.0` is the HAL-helper and developer-workflow milestone. `0.2.1` is the Modbus/CubeMX generated-glue bugfix patch after first hardware validation. `0.3.0` is the repository cleanup release that promotes the framework to the root and moves the temp transmitter pilot into its own project. `0.4.0` is the project config system release. `0.5.0` is the test/CI scaffold and generic board-capability release.
 
 ## Confirmed Design Decisions
 
@@ -112,6 +114,14 @@ Important future automation areas:
 
 - Docs are part of the framework.
 - If a framework feature changes usage or architecture, docs must be updated in the same change.
+
+### 8. Generic roles vs application meaning
+
+- The framework should prefer generic board capabilities over product-specific names.
+- Firmware/application config should assign product meaning to those capabilities.
+- Avoid adding narrowly named framework roles such as `sensor_drdy` when a generic external interrupt input can serve the same need.
+- SPI support should model one bus with multiple logical devices/chip-selects, not a single baked-in sensor CS.
+- Existing semantic conveniences such as `BOARD_ROLE_STATUS_LED` can remain for compatibility, but new work should not expand that pattern blindly. Product-specific aliases should move toward app config, generated metadata, or thin app-side wrappers.
 
 ## Planned Folder Structure
 
@@ -300,9 +310,62 @@ Tasks:
 Status:
 - initial examples exist and build
 - testing strategy is documented in `testing.md`
-- host/desktop test implementation is not started
+- first host/desktop test implementation exists and passes locally
+- `HSS_ENABLE_TESTS=ON` exposes CTest helpers and host support targets
+- framework self-tests currently cover `hss_result_t`, GPIO fakes/EXTI dispatch, and SPI fakes/status/device CS behavior
+- GitHub Actions workflow exists for Python tests, host C tests, and ARM firmware example build checks
+- local ARM firmware build checks pass for `examples/blue_pill_minimal` and `examples/stm32g0_minimal`
+- hardware validation is pending after the host-test scaffold change
+
+### Phase 8.5: test stabilization and generic board capability work
+
+Goal:
+- use the new test scaffold as guardrails while unblocking real firmware needs
+- avoid freezing product-specific roles into the framework API
+
+Ordering:
+1. stabilize and commit the current host-test/CI scaffold
+2. add narrowly targeted tests beside each new board-capability feature
+3. implement the missing generic features needed by the temp transmitter pilot
+4. return to broader framework test completion after those blockers are removed
+
+Planned capability improvements:
+- generic external interrupt input roles were started with `BOARD_ROLE_EXTI_<name>`
+- role metadata is generated for EXTI pin, GPIO port, active level, trigger edge, IRQ handler, IRQn, priority, and subpriority
+- framework-owned IRQ shim sources are generated for selected EXTI roles so applications do not define `EXTI*_IRQHandler()` themselves
+- generic helper APIs for external interrupt roles are available through `hss_exti_input_*`
+- evolve sensor SPI into generic SPI bus/device metadata that supports multiple chip-selects on one bus
+- expose chip-select idle/inactive state and provide a helper to put declared SPI devices into their inactive state before use; compatibility support exists for `BOARD_ROLE_SENSOR_CS_IDLE` and `hss_sensor_spi_deselect()`
+- add explicit SPI role/device configuration helpers for mode, prescaler, NSS, first-bit, and related settings when CubeMX output needs verification or correction; compatibility support exists through `hss_sensor_spi_configure_for_role()`
+- add board-sync validation/checklist diagnostics after the metadata exists, rather than making validation the first implementation step
+
+Testing expectations for this phase:
+- unit-test EXTI IRQ mapping for STM32F1/F4-style and STM32G0-style IRQ groups
+- host-test generic EXTI helper behavior against the GPIO interrupt registry and fake NVIC hooks
+- CMake/config tests for generated role metadata where practical
+- preserve existing builds when no external interrupt or extra chip-select roles are declared
+
+Non-goals for this phase:
+- finishing all framework test coverage
+- adding hardware-in-the-loop automation
+- making the framework own product-specific names such as `sensor_drdy`
+- expanding status LED-style semantic roles before the generic role model is clearer
 
 ## Current Verification Commands
+
+Run the host tests after changing framework C helpers, host fakes, or test CMake:
+
+```sh
+cmake -S . -B build/host-tests -G Ninja -DHSS_ENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+cmake --build build/host-tests
+ctest --test-dir build/host-tests --output-on-failure
+```
+
+Run the Python config tests after changing `tools/config/`:
+
+```sh
+python3 -m unittest discover tools/config/tests
+```
 
 Run these after changing CMake, board sync generation, or board files:
 

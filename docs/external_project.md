@@ -2,7 +2,7 @@
 
 `HSS STM32 framework` is intended to be consumed by application repositories.
 
-Applications should own their board directories. The framework should be a submodule, copied dependency, or CMake `FetchContent` dependency; adding a new board should not require changing the framework repository.
+Applications should own their board directories. The preferred framework dependency path is CMake `FetchContent`; a submodule or copied dependency remains supported when a project needs fully offline source checkout behavior.
 
 Recommended application shape:
 
@@ -15,24 +15,8 @@ my_app/
       Core/
       Drivers/
   src/main.c
-  third_party/stm32-baremetal-framework/
-```
-
-Minimal submodule/copied dependency `CMakeLists.txt`:
-
-```cmake
-cmake_minimum_required(VERSION 3.20)
-
-project(my_app C ASM)
-
-set(HSS_BOARD_PATHS "${CMAKE_CURRENT_LIST_DIR}/boards" CACHE STRING "HSS board search paths")
-
-add_subdirectory(third_party/stm32-baremetal-framework)
-
-hss_add_firmware(my_app
-        BOARD my_board
-        src/main.c
-)
+  cmake/
+    arm-gcc-toolchain.cmake
 ```
 
 Minimal FetchContent `CMakeLists.txt`:
@@ -46,8 +30,8 @@ include(FetchContent)
 
 FetchContent_Declare(
         hss_framework
-        GIT_REPOSITORY <framework-repo-url>
-        GIT_TAG v0.3.0
+        GIT_REPOSITORY https://github.com/veskotr/stm32-baremetal-framework.git
+        GIT_TAG v0.5.0
 )
 FetchContent_MakeAvailable(hss_framework)
 
@@ -59,7 +43,51 @@ hss_add_firmware(my_app
 )
 ```
 
-Configure with the ARM GCC toolchain file:
+Submodule/copied dependency fallback:
+
+```cmake
+cmake_minimum_required(VERSION 3.20)
+
+project(my_app C ASM)
+
+set(HSS_BOARD_PATHS "${CMAKE_CURRENT_LIST_DIR}/boards" CACHE STRING "HSS board search paths")
+
+add_subdirectory(third_party/stm32-baremetal-framework)
+
+set(HSS_BOARD_PATHS "${CMAKE_CURRENT_LIST_DIR}/boards" CACHE STRING "HSS board search paths")
+
+hss_add_firmware(my_app
+        BOARD my_board
+        src/main.c
+)
+```
+
+Configure FetchContent firmware builds with an app-local ARM GCC toolchain file:
+
+```sh
+cmake -S . -B build/debug -G Ninja \
+  -DCMAKE_TOOLCHAIN_FILE=cmake/arm-gcc-toolchain.cmake \
+  -DCMAKE_BUILD_TYPE=Debug
+cmake --build build/debug
+```
+
+The app-local toolchain file can be a small project-owned file that selects
+`arm-none-eabi-gcc`. HSS still supplies board CPU flags, linker scripts,
+startup files, HAL include paths, OpenOCD metadata, and post-build artifacts.
+
+Example:
+
+```cmake
+set(CMAKE_SYSTEM_NAME Generic)
+set(CMAKE_SYSTEM_PROCESSOR ARM)
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+set(CMAKE_C_COMPILER arm-none-eabi-gcc)
+set(CMAKE_ASM_COMPILER arm-none-eabi-gcc)
+set(CMAKE_EXECUTABLE_SUFFIX ".elf")
+```
+
+For submodule/copied dependency projects, using the framework-provided toolchain
+file directly is also supported:
 
 ```sh
 cmake -S . -B build/debug -G Ninja \
@@ -68,7 +96,48 @@ cmake -S . -B build/debug -G Ninja \
 cmake --build build/debug
 ```
 
-CMake requires `CMAKE_TOOLCHAIN_FILE` before the top-level `project()` enables C/ASM languages. A FetchContent download cannot provide that file for the same first configure unless a separate bootstrap or app-local shim already exists. The official framework toolchain is `arm-none-eabi-gcc`; MCU-specific flags, startup file, linker script, MCU define, HAL paths, CMSIS paths, and OpenOCD target come from generated board metadata.
+CMake requires `CMAKE_TOOLCHAIN_FILE` before the top-level `project()` enables C/ASM languages. Because FetchContent normally downloads HSS after `project()`, FetchContent firmware projects should not rely on the fetched copy for the first-configure toolchain file.
+
+## Host Tests
+
+User projects can enable host tests in a native build:
+
+```cmake
+include(FetchContent)
+
+FetchContent_Declare(
+        hss_framework
+        GIT_REPOSITORY https://github.com/veskotr/stm32-baremetal-framework.git
+        GIT_TAG v0.5.0
+)
+FetchContent_MakeAvailable(hss_framework)
+
+hss_add_host_test(my_app_unit_tests
+        SOURCES tests/test_state_machine.c src/state_machine.c
+)
+
+hss_add_host_integration_test(my_app_spi_tests
+        SOURCES tests/test_spi_flow.c src/sensor_logic.c
+        LIBRARIES hss_hal_host
+)
+```
+
+Configure and run:
+
+```sh
+cmake -S . -B build/host-tests -G Ninja -DHSS_ENABLE_TESTS=ON
+cmake --build build/host-tests
+ctest --test-dir build/host-tests --output-on-failure
+```
+
+Use a separate build directory for firmware:
+
+```sh
+cmake -S . -B build/firmware -G Ninja \
+  -DCMAKE_TOOLCHAIN_FILE=cmake/arm-gcc-toolchain.cmake \
+  -DCMAKE_BUILD_TYPE=Debug
+cmake --build build/firmware
+```
 
 ## Project Config
 
@@ -157,6 +226,69 @@ For details, see [`docs/config_system.md`](./config_system.md).
 ```
 
 The framework supports one selected board per build directory. Use separate build directories for different boards.
+
+## Generic EXTI Roles
+
+Applications can declare named external interrupt inputs in `board_roles.cmake`.
+The name after `BOARD_ROLE_EXTI_` belongs to the application; the framework only
+generates GPIO/IRQ metadata and a small IRQ shim.
+
+```cmake
+set(BOARD_ROLE_EXTI_MAX31865_DRDY PA3)
+set(BOARD_ROLE_EXTI_MAX31865_DRDY_ACTIVE_LOW ON)
+set(BOARD_ROLE_EXTI_MAX31865_DRDY_TRIGGER falling) # rising, falling, or both
+set(BOARD_ROLE_EXTI_MAX31865_DRDY_IRQ_PRIORITY 0)
+set(BOARD_ROLE_EXTI_MAX31865_DRDY_IRQ_SUBPRIORITY 0)
+```
+
+The generated `hss_board_roles.h` exposes macros such as:
+
+```c
+HSS_BOARD_EXTI_MAX31865_DRDY_PIN
+HSS_BOARD_EXTI_MAX31865_DRDY_IRQN
+HSS_BOARD_EXTI_MAX31865_DRDY_INPUT
+```
+
+Firmware can then use the generic helper:
+
+```c
+#include "hss_board_roles.h"
+#include "hss_exti.h"
+
+hss_exti_input_t drdy = HSS_BOARD_EXTI_MAX31865_DRDY_INPUT;
+hss_exti_input_register_callback(&drdy, app_drdy_callback, NULL);
+hss_exti_input_enable(&drdy);
+```
+
+For boards that declare EXTI roles, the framework generates and compiles the
+matching `EXTI*_IRQHandler()` shim for the selected STM32 family. CubeMX should
+still configure the pin as GPIO EXTI so HAL sets up the port/EXTI routing.
+
+## Sensor SPI Role Configuration
+
+Existing sensor SPI roles can also declare the attached device's SPI settings:
+
+```cmake
+set(BOARD_ROLE_SENSOR_SPI SPI1)
+set(BOARD_ROLE_SENSOR_CS PA4)
+set(BOARD_ROLE_SENSOR_CS_ACTIVE_LOW ON)
+set(BOARD_ROLE_SENSOR_CS_IDLE inactive)
+set(BOARD_ROLE_SENSOR_SPI_MODE 3)
+set(BOARD_ROLE_SENSOR_SPI_BAUD_PRESCALER 16)
+set(BOARD_ROLE_SENSOR_SPI_NSS software)
+set(BOARD_ROLE_SENSOR_SPI_FIRST_BIT msb)
+```
+
+Firmware can explicitly apply the role configuration:
+
+```c
+hss_sensor_spi_deselect();
+hss_sensor_spi_configure_for_role();
+```
+
+This is intentionally explicit for now. CubeMX still owns the normal SPI
+initialization, while the helper gives applications a framework-owned place for
+device-specific bring-up corrections.
 
 ## Board Sync
 

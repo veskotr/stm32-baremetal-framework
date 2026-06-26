@@ -153,7 +153,54 @@ function(hss_add_board_sync_target OUT_VAR BOARD_NAME BOARD_DIR)
     set(${OUT_VAR} "${SYNC_TARGET}" PARENT_SCOPE)
 endfunction()
 
-function(hss_write_board_roles_header BOARD_TARGET_SUFFIX OUT_INCLUDE_DIR)
+function(hss_parse_gpio_pin ROLE_NAME PIN_NAME OUT_PORT_LETTER OUT_PIN_NUMBER)
+    string(TOUPPER "${PIN_NAME}" NORMALIZED_PIN_NAME)
+    string(REGEX MATCH "^P([A-Z])([0-9]+)$" _ "${NORMALIZED_PIN_NAME}")
+    if (NOT CMAKE_MATCH_1 OR NOT CMAKE_MATCH_2)
+        message(FATAL_ERROR "${ROLE_NAME} must use a pin name like PA3, got '${PIN_NAME}'")
+    endif()
+
+    set(PIN_NUMBER "${CMAKE_MATCH_2}")
+    if (PIN_NUMBER LESS 0 OR PIN_NUMBER GREATER 15)
+        message(FATAL_ERROR "${ROLE_NAME} must use a GPIO pin number from 0 to 15, got '${PIN_NAME}'")
+    endif()
+
+    set(${OUT_PORT_LETTER} "${CMAKE_MATCH_1}" PARENT_SCOPE)
+    set(${OUT_PIN_NUMBER} "${PIN_NUMBER}" PARENT_SCOPE)
+endfunction()
+
+function(hss_exti_irq_for_pin OUT_HANDLER OUT_IRQN MCU_FAMILY PIN_NUMBER)
+    string(TOLOWER "${MCU_FAMILY}" FAMILY)
+
+    if (FAMILY MATCHES "^stm32g0")
+        if (PIN_NUMBER LESS 2)
+            set(HANDLER "EXTI0_1_IRQHandler")
+            set(IRQN "EXTI0_1_IRQn")
+        elseif (PIN_NUMBER LESS 4)
+            set(HANDLER "EXTI2_3_IRQHandler")
+            set(IRQN "EXTI2_3_IRQn")
+        else()
+            set(HANDLER "EXTI4_15_IRQHandler")
+            set(IRQN "EXTI4_15_IRQn")
+        endif()
+    else()
+        if (PIN_NUMBER LESS 5)
+            set(HANDLER "EXTI${PIN_NUMBER}_IRQHandler")
+            set(IRQN "EXTI${PIN_NUMBER}_IRQn")
+        elseif (PIN_NUMBER LESS 10)
+            set(HANDLER "EXTI9_5_IRQHandler")
+            set(IRQN "EXTI9_5_IRQn")
+        else()
+            set(HANDLER "EXTI15_10_IRQHandler")
+            set(IRQN "EXTI15_10_IRQn")
+        endif()
+    endif()
+
+    set(${OUT_HANDLER} "${HANDLER}" PARENT_SCOPE)
+    set(${OUT_IRQN} "${IRQN}" PARENT_SCOPE)
+endfunction()
+
+function(hss_write_board_roles_header BOARD_TARGET_SUFFIX OUT_INCLUDE_DIR OUT_IRQ_SOURCE)
     set(ROLE_INCLUDE_DIR "${CMAKE_BINARY_DIR}/hss_generated/${BOARD_TARGET_SUFFIX}")
     file(MAKE_DIRECTORY "${ROLE_INCLUDE_DIR}")
     set(ROLE_EXTRA_INCLUDES "")
@@ -261,6 +308,11 @@ ${MODBUS_RS485_DEFINES}")
     set(SENSOR_SPI_DEFINES
 "#define HSS_BOARD_HAS_SENSOR_SPI 0
 #define HSS_BOARD_HAS_SENSOR_CS 0
+#define HSS_BOARD_SENSOR_SPI_HAS_CONFIG 0
+#define HSS_BOARD_SENSOR_SPI_HAS_MODE 0
+#define HSS_BOARD_SENSOR_SPI_HAS_BAUD_PRESCALER 0
+#define HSS_BOARD_SENSOR_SPI_HAS_NSS 0
+#define HSS_BOARD_SENSOR_SPI_HAS_FIRST_BIT 0
 ")
     if (DEFINED BOARD_ROLE_SENSOR_SPI)
         string(TOLOWER "${BOARD_ROLE_SENSOR_SPI}" SENSOR_SPI_HANDLE_SUFFIX)
@@ -280,18 +332,218 @@ ${MODBUS_RS485_DEFINES}")
                 set(SENSOR_CS_ACTIVE_LOW 0)
             endif()
 
+            set(SENSOR_CS_INACTIVE_STATE "GPIO_PIN_SET")
+            if (NOT SENSOR_CS_ACTIVE_LOW)
+                set(SENSOR_CS_INACTIVE_STATE "GPIO_PIN_RESET")
+            endif()
+            if (DEFINED BOARD_ROLE_SENSOR_CS_IDLE)
+                string(TOLOWER "${BOARD_ROLE_SENSOR_CS_IDLE}" SENSOR_CS_IDLE)
+                if (SENSOR_CS_IDLE STREQUAL "active")
+                    if (SENSOR_CS_ACTIVE_LOW)
+                        set(SENSOR_CS_INACTIVE_STATE "GPIO_PIN_RESET")
+                    else()
+                        set(SENSOR_CS_INACTIVE_STATE "GPIO_PIN_SET")
+                    endif()
+                elseif (NOT SENSOR_CS_IDLE STREQUAL "inactive")
+                    message(FATAL_ERROR
+                            "BOARD_ROLE_SENSOR_CS_IDLE must be active or inactive; got '${BOARD_ROLE_SENSOR_CS_IDLE}'")
+                endif()
+            endif()
+
             set(SENSOR_CS_DEFINES
 "#define HSS_BOARD_HAS_SENSOR_CS 1
 #define HSS_BOARD_SENSOR_CS_PORT GPIO${CMAKE_MATCH_1}
 #define HSS_BOARD_SENSOR_CS_PIN GPIO_PIN_${CMAKE_MATCH_2}
 #define HSS_BOARD_SENSOR_CS_ACTIVE_LOW ${SENSOR_CS_ACTIVE_LOW}
+#define HSS_BOARD_SENSOR_CS_INACTIVE_STATE ${SENSOR_CS_INACTIVE_STATE}
 ")
         endif()
+
+        set(SENSOR_SPI_CONFIG_DEFINES
+"#define HSS_BOARD_SENSOR_SPI_HAS_CONFIG 0
+#define HSS_BOARD_SENSOR_SPI_HAS_MODE 0
+#define HSS_BOARD_SENSOR_SPI_HAS_BAUD_PRESCALER 0
+#define HSS_BOARD_SENSOR_SPI_HAS_NSS 0
+#define HSS_BOARD_SENSOR_SPI_HAS_FIRST_BIT 0
+")
+        set(SENSOR_SPI_HAS_CONFIG 0)
+        if (DEFINED BOARD_ROLE_SENSOR_SPI_MODE)
+            set(SENSOR_SPI_HAS_CONFIG 1)
+            if (BOARD_ROLE_SENSOR_SPI_MODE EQUAL 0)
+                set(SENSOR_SPI_CLK_POLARITY "SPI_POLARITY_LOW")
+                set(SENSOR_SPI_CLK_PHASE "SPI_PHASE_1EDGE")
+            elseif (BOARD_ROLE_SENSOR_SPI_MODE EQUAL 1)
+                set(SENSOR_SPI_CLK_POLARITY "SPI_POLARITY_LOW")
+                set(SENSOR_SPI_CLK_PHASE "SPI_PHASE_2EDGE")
+            elseif (BOARD_ROLE_SENSOR_SPI_MODE EQUAL 2)
+                set(SENSOR_SPI_CLK_POLARITY "SPI_POLARITY_HIGH")
+                set(SENSOR_SPI_CLK_PHASE "SPI_PHASE_1EDGE")
+            elseif (BOARD_ROLE_SENSOR_SPI_MODE EQUAL 3)
+                set(SENSOR_SPI_CLK_POLARITY "SPI_POLARITY_HIGH")
+                set(SENSOR_SPI_CLK_PHASE "SPI_PHASE_2EDGE")
+            else()
+                message(FATAL_ERROR "BOARD_ROLE_SENSOR_SPI_MODE must be 0, 1, 2, or 3; got '${BOARD_ROLE_SENSOR_SPI_MODE}'")
+            endif()
+            set(SENSOR_SPI_MODE_DEFINES
+"#define HSS_BOARD_SENSOR_SPI_HAS_MODE 1
+#define HSS_BOARD_SENSOR_SPI_MODE ${BOARD_ROLE_SENSOR_SPI_MODE}
+#define HSS_BOARD_SENSOR_SPI_CLK_POLARITY ${SENSOR_SPI_CLK_POLARITY}
+#define HSS_BOARD_SENSOR_SPI_CLK_PHASE ${SENSOR_SPI_CLK_PHASE}
+")
+        else()
+            set(SENSOR_SPI_MODE_DEFINES "#define HSS_BOARD_SENSOR_SPI_HAS_MODE 0\n")
+        endif()
+
+        if (DEFINED BOARD_ROLE_SENSOR_SPI_BAUD_PRESCALER)
+            set(SENSOR_SPI_HAS_CONFIG 1)
+            set(SENSOR_SPI_BAUD_DEFINES
+"#define HSS_BOARD_SENSOR_SPI_HAS_BAUD_PRESCALER 1
+#define HSS_BOARD_SENSOR_SPI_BAUD_PRESCALER SPI_BAUDRATEPRESCALER_${BOARD_ROLE_SENSOR_SPI_BAUD_PRESCALER}
+")
+        else()
+            set(SENSOR_SPI_BAUD_DEFINES "#define HSS_BOARD_SENSOR_SPI_HAS_BAUD_PRESCALER 0\n")
+        endif()
+
+        if (DEFINED BOARD_ROLE_SENSOR_SPI_NSS)
+            set(SENSOR_SPI_HAS_CONFIG 1)
+            string(TOLOWER "${BOARD_ROLE_SENSOR_SPI_NSS}" SENSOR_SPI_NSS)
+            if (SENSOR_SPI_NSS STREQUAL "software" OR SENSOR_SPI_NSS STREQUAL "soft")
+                set(SENSOR_SPI_NSS_VALUE "SPI_NSS_SOFT")
+            else()
+                message(FATAL_ERROR "BOARD_ROLE_SENSOR_SPI_NSS currently supports only software; got '${BOARD_ROLE_SENSOR_SPI_NSS}'")
+            endif()
+            set(SENSOR_SPI_NSS_DEFINES
+"#define HSS_BOARD_SENSOR_SPI_HAS_NSS 1
+#define HSS_BOARD_SENSOR_SPI_NSS ${SENSOR_SPI_NSS_VALUE}
+")
+        else()
+            set(SENSOR_SPI_NSS_DEFINES "#define HSS_BOARD_SENSOR_SPI_HAS_NSS 0\n")
+        endif()
+
+        if (DEFINED BOARD_ROLE_SENSOR_SPI_FIRST_BIT)
+            set(SENSOR_SPI_HAS_CONFIG 1)
+            string(TOLOWER "${BOARD_ROLE_SENSOR_SPI_FIRST_BIT}" SENSOR_SPI_FIRST_BIT)
+            if (SENSOR_SPI_FIRST_BIT STREQUAL "msb")
+                set(SENSOR_SPI_FIRST_BIT_VALUE "SPI_FIRSTBIT_MSB")
+            elseif (SENSOR_SPI_FIRST_BIT STREQUAL "lsb")
+                set(SENSOR_SPI_FIRST_BIT_VALUE "SPI_FIRSTBIT_LSB")
+            else()
+                message(FATAL_ERROR "BOARD_ROLE_SENSOR_SPI_FIRST_BIT must be msb or lsb; got '${BOARD_ROLE_SENSOR_SPI_FIRST_BIT}'")
+            endif()
+            set(SENSOR_SPI_FIRST_BIT_DEFINES
+"#define HSS_BOARD_SENSOR_SPI_HAS_FIRST_BIT 1
+#define HSS_BOARD_SENSOR_SPI_FIRST_BIT ${SENSOR_SPI_FIRST_BIT_VALUE}
+")
+        else()
+            set(SENSOR_SPI_FIRST_BIT_DEFINES "#define HSS_BOARD_SENSOR_SPI_HAS_FIRST_BIT 0\n")
+        endif()
+
+        set(SENSOR_SPI_CONFIG_DEFINES
+"#define HSS_BOARD_SENSOR_SPI_HAS_CONFIG ${SENSOR_SPI_HAS_CONFIG}
+${SENSOR_SPI_MODE_DEFINES}${SENSOR_SPI_BAUD_DEFINES}${SENSOR_SPI_NSS_DEFINES}${SENSOR_SPI_FIRST_BIT_DEFINES}")
 
         set(SENSOR_SPI_DEFINES
 "#define HSS_BOARD_HAS_SENSOR_SPI 1
 #define HSS_BOARD_SENSOR_SPI_HANDLE h${SENSOR_SPI_HANDLE_SUFFIX}
-${SENSOR_CS_DEFINES}")
+${SENSOR_CS_DEFINES}${SENSOR_SPI_CONFIG_DEFINES}")
+    endif()
+
+    set(EXTI_DEFINES "#define HSS_BOARD_EXTI_ROLE_COUNT 0\n")
+    set(EXTI_IRQ_SOURCE "")
+    set(EXTI_ROLE_COUNT 0)
+    set(EXTI_HANDLER_NAMES "")
+    get_cmake_property(HSS_ALL_VARIABLES VARIABLES)
+    foreach(HSS_VAR IN LISTS HSS_ALL_VARIABLES)
+        if (HSS_VAR MATCHES "^BOARD_ROLE_EXTI_([A-Za-z0-9_]+)$")
+            set(EXTI_LABEL "${CMAKE_MATCH_1}")
+            if (EXTI_LABEL MATCHES "(_ACTIVE_LOW|_TRIGGER|_IRQ_PRIORITY|_IRQ_SUBPRIORITY)$")
+                continue()
+            endif()
+
+            hss_parse_gpio_pin("${HSS_VAR}" "${${HSS_VAR}}" EXTI_PORT_LETTER EXTI_PIN_NUMBER)
+            hss_exti_irq_for_pin(EXTI_IRQ_HANDLER EXTI_IRQN "${BOARD_MCU_FAMILY}" "${EXTI_PIN_NUMBER}")
+            string(TOUPPER "${EXTI_LABEL}" EXTI_LABEL_UPPER)
+            string(MAKE_C_IDENTIFIER "${EXTI_LABEL_UPPER}" EXTI_LABEL_ID)
+
+            set(EXTI_ACTIVE_LOW 0)
+            set(EXTI_ACTIVE_LOW_VAR "${HSS_VAR}_ACTIVE_LOW")
+            if (DEFINED ${EXTI_ACTIVE_LOW_VAR} AND ${${EXTI_ACTIVE_LOW_VAR}})
+                set(EXTI_ACTIVE_LOW 1)
+            endif()
+
+            set(EXTI_TRIGGER_RISING 0)
+            set(EXTI_TRIGGER_FALLING 1)
+            set(EXTI_TRIGGER_VAR "${HSS_VAR}_TRIGGER")
+            if (DEFINED ${EXTI_TRIGGER_VAR})
+                string(TOLOWER "${${EXTI_TRIGGER_VAR}}" EXTI_TRIGGER)
+                if (EXTI_TRIGGER STREQUAL "rising")
+                    set(EXTI_TRIGGER_RISING 1)
+                    set(EXTI_TRIGGER_FALLING 0)
+                elseif (EXTI_TRIGGER STREQUAL "falling")
+                    set(EXTI_TRIGGER_RISING 0)
+                    set(EXTI_TRIGGER_FALLING 1)
+                elseif (EXTI_TRIGGER STREQUAL "both")
+                    set(EXTI_TRIGGER_RISING 1)
+                    set(EXTI_TRIGGER_FALLING 1)
+                else()
+                    message(FATAL_ERROR "${EXTI_TRIGGER_VAR} must be rising, falling, or both; got '${${EXTI_TRIGGER_VAR}}'")
+                endif()
+            endif()
+
+            set(EXTI_PRIORITY 0)
+            set(EXTI_PRIORITY_VAR "${HSS_VAR}_IRQ_PRIORITY")
+            if (DEFINED ${EXTI_PRIORITY_VAR})
+                set(EXTI_PRIORITY "${${EXTI_PRIORITY_VAR}}")
+            endif()
+            set(EXTI_SUBPRIORITY 0)
+            set(EXTI_SUBPRIORITY_VAR "${HSS_VAR}_IRQ_SUBPRIORITY")
+            if (DEFINED ${EXTI_SUBPRIORITY_VAR})
+                set(EXTI_SUBPRIORITY "${${EXTI_SUBPRIORITY_VAR}}")
+            endif()
+
+            math(EXPR EXTI_ROLE_COUNT "${EXTI_ROLE_COUNT} + 1")
+            string(APPEND EXTI_DEFINES
+"#define HSS_BOARD_HAS_EXTI_${EXTI_LABEL_ID} 1
+#define HSS_BOARD_EXTI_${EXTI_LABEL_ID}_PORT GPIO${EXTI_PORT_LETTER}
+#define HSS_BOARD_EXTI_${EXTI_LABEL_ID}_PIN GPIO_PIN_${EXTI_PIN_NUMBER}
+#define HSS_BOARD_EXTI_${EXTI_LABEL_ID}_PIN_NUMBER ${EXTI_PIN_NUMBER}
+#define HSS_BOARD_EXTI_${EXTI_LABEL_ID}_ACTIVE_LOW ${EXTI_ACTIVE_LOW}
+#define HSS_BOARD_EXTI_${EXTI_LABEL_ID}_TRIGGER_FALLING ${EXTI_TRIGGER_FALLING}
+#define HSS_BOARD_EXTI_${EXTI_LABEL_ID}_TRIGGER_RISING ${EXTI_TRIGGER_RISING}
+#define HSS_BOARD_EXTI_${EXTI_LABEL_ID}_IRQ_HANDLER ${EXTI_IRQ_HANDLER}
+#define HSS_BOARD_EXTI_${EXTI_LABEL_ID}_IRQN ${EXTI_IRQN}
+#define HSS_BOARD_EXTI_${EXTI_LABEL_ID}_IRQ_PRIORITY ${EXTI_PRIORITY}
+#define HSS_BOARD_EXTI_${EXTI_LABEL_ID}_IRQ_SUBPRIORITY ${EXTI_SUBPRIORITY}
+#define HSS_BOARD_EXTI_${EXTI_LABEL_ID}_INPUT ((hss_exti_input_t){GPIO_PIN_${EXTI_PIN_NUMBER}, ${EXTI_IRQN}, ${EXTI_PRIORITY}, ${EXTI_SUBPRIORITY}})
+")
+
+            list(FIND EXTI_HANDLER_NAMES "${EXTI_IRQ_HANDLER}" EXTI_HANDLER_INDEX)
+            if (EXTI_HANDLER_INDEX EQUAL -1)
+                list(APPEND EXTI_HANDLER_NAMES "${EXTI_IRQ_HANDLER}")
+                set(EXTI_HANDLER_PINS_${EXTI_IRQ_HANDLER} "")
+            endif()
+            set(EXTI_HANDLER_PINS_${EXTI_IRQ_HANDLER} "${EXTI_HANDLER_PINS_${EXTI_IRQ_HANDLER}};GPIO_PIN_${EXTI_PIN_NUMBER}")
+        endif()
+    endforeach()
+    string(REPLACE "#define HSS_BOARD_EXTI_ROLE_COUNT 0" "#define HSS_BOARD_EXTI_ROLE_COUNT ${EXTI_ROLE_COUNT}" EXTI_DEFINES "${EXTI_DEFINES}")
+
+    if (EXTI_ROLE_COUNT GREATER 0)
+        set(IRQ_FUNCTIONS "")
+        foreach(EXTI_HANDLER IN LISTS EXTI_HANDLER_NAMES)
+            string(APPEND IRQ_FUNCTIONS "void ${EXTI_HANDLER}(void)\n{\n")
+            foreach(EXTI_PIN IN LISTS EXTI_HANDLER_PINS_${EXTI_HANDLER})
+                if (NOT EXTI_PIN STREQUAL "")
+                    string(APPEND IRQ_FUNCTIONS "    HAL_GPIO_EXTI_IRQHandler(${EXTI_PIN});\n")
+                endif()
+            endforeach()
+            string(APPEND IRQ_FUNCTIONS "}\n\n")
+        endforeach()
+        set(EXTI_IRQ_SOURCE "${ROLE_INCLUDE_DIR}/hss_board_irqs.c")
+        file(WRITE "${EXTI_IRQ_SOURCE}"
+"/* Generated by HSS STM32 framework CMake; do not edit by hand. */
+#include \"hss_board_roles.h\"
+
+${IRQ_FUNCTIONS}")
     endif()
 
     file(WRITE "${ROLE_INCLUDE_DIR}/hss_board_roles.h"
@@ -306,9 +558,11 @@ ${CONSOLE_UART_DEFINES}
 ${DEBUG_UART_DEFINES}
 ${MODBUS_UART_DEFINES}
 ${MODBUS_TIMER_DEFINES}
-${SENSOR_SPI_DEFINES}")
+${SENSOR_SPI_DEFINES}
+${EXTI_DEFINES}")
 
     set(${OUT_INCLUDE_DIR} "${ROLE_INCLUDE_DIR}" PARENT_SCOPE)
+    set(${OUT_IRQ_SOURCE} "${EXTI_IRQ_SOURCE}" PARENT_SCOPE)
 endfunction()
 
 function(hss_collect_hal_sources OUT_VAR HAL_DRIVER_DIR BOARD_CORE_INCLUDE_DIR)
@@ -378,7 +632,7 @@ function(hss_register_board BOARD_NAME)
     if (EXISTS "${BOARD_DIR}/board_roles.cmake")
         include("${BOARD_DIR}/board_roles.cmake")
     endif()
-    hss_write_board_roles_header("${BOARD_TARGET_SUFFIX}" BOARD_ROLE_INCLUDE_DIR)
+    hss_write_board_roles_header("${BOARD_TARGET_SUFFIX}" BOARD_ROLE_INCLUDE_DIR BOARD_IRQ_SOURCE)
 
     hss_collect_hal_sources(BOARD_HAL_SOURCES "${BOARD_HAL_DRIVER_DIR}" "${BOARD_CORE_INCLUDE_DIR}")
 
@@ -386,6 +640,7 @@ function(hss_register_board BOARD_NAME)
             ${BOARD_STARTUP_SOURCE}
             ${BOARD_CORE_SOURCES}
             ${BOARD_GLUE_SOURCES}
+            ${BOARD_IRQ_SOURCE}
             ${BOARD_HAL_SOURCES}
     )
 

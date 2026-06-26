@@ -32,6 +32,7 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "board_config.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -54,6 +55,9 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 
+void clock_init(void);
+void board_systick_hook(void);
+int uart1_irq_handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

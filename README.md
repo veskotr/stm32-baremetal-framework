@@ -40,8 +40,8 @@ my_app/
       *.ld
   src/
     main.c
-  third_party/
-    stm32-baremetal-framework/
+  cmake/
+    arm-gcc-toolchain.cmake
 ```
 
 Minimal `CMakeLists.txt`:
@@ -51,9 +51,16 @@ cmake_minimum_required(VERSION 3.20)
 
 project(my_app C ASM)
 
-set(HSS_BOARD_PATHS "${CMAKE_CURRENT_LIST_DIR}/boards" CACHE STRING "HSS board search paths")
+include(FetchContent)
 
-add_subdirectory(third_party/stm32-baremetal-framework)
+FetchContent_Declare(
+        hss_framework
+        GIT_REPOSITORY https://github.com/veskotr/stm32-baremetal-framework.git
+        GIT_TAG v0.5.0
+)
+FetchContent_MakeAvailable(hss_framework)
+
+set(HSS_BOARD_PATHS "${CMAKE_CURRENT_LIST_DIR}/boards" CACHE STRING "HSS board search paths")
 
 hss_add_firmware(my_app
         BOARD my_board
@@ -86,10 +93,15 @@ Configure and build:
 
 ```sh
 cmake -S . -B build/debug -G Ninja \
-  -DCMAKE_TOOLCHAIN_FILE=third_party/stm32-baremetal-framework/cmake/arm-gcc-toolchain.cmake \
+  -DCMAKE_TOOLCHAIN_FILE=cmake/arm-gcc-toolchain.cmake \
   -DCMAKE_BUILD_TYPE=Debug
 cmake --build build/debug
 ```
+
+FetchContent projects should keep a tiny app-local ARM GCC toolchain file or
+preset because CMake needs `CMAKE_TOOLCHAIN_FILE` before FetchContent downloads
+the framework. Submodule/copied framework projects may use
+`third_party/stm32-baremetal-framework/cmake/arm-gcc-toolchain.cmake` directly.
 
 Flash:
 
