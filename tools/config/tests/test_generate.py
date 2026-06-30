@@ -149,6 +149,20 @@ class ConfigGenerateTests(unittest.TestCase):
             self.assertIn("HSS_ENABLE_MAX31865", values)
             self.assertFalse(values["HSS_ENABLE_MAX31865"].value)
 
+    def test_eeprom_schema_defaults_exist(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = self.write(root, "hss.conf", "")
+
+            values, _ = load_config(config, [])
+
+            self.assertIn("HSS_ENABLE_EEPROM_EMULATION", values)
+            self.assertFalse(values["HSS_ENABLE_EEPROM_EMULATION"].value)
+            self.assertEqual(values["HSS_EEPROM_FLASH_ORIGIN"].value, 0)
+            self.assertEqual(values["HSS_EEPROM_FLASH_SIZE"].value, 0)
+            self.assertEqual(values["HSS_EEPROM_PAGE_SIZE"].value, 0)
+            self.assertEqual(values["HSS_EEPROM_SLOT_COUNT"].value, 0)
+
     def test_metadata_records_generated_macro_name(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -175,6 +189,68 @@ class ConfigGenerateTests(unittest.TestCase):
             self.assertIn('CONFIG_APP_DEVICE_NAME=\\"demo\\"', cmake)
             self.assertIn('HSS_CONFIG_VALUE_TOOL_UPLOAD_PORT "/dev/ttyUSB0"', cmake)
             self.assertNotIn("CONFIG_TOOL_UPLOAD_PORT", cmake)
+
+    def test_eeprom_values_are_included_in_framework_compile_definitions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = self.write(
+                root,
+                "hss.conf",
+                "HSS_ENABLE_EEPROM_EMULATION=y\n"
+                "HSS_EEPROM_FLASH_ORIGIN=0x0800F800\n"
+                "HSS_EEPROM_FLASH_SIZE=2048\n"
+                "HSS_EEPROM_PAGE_SIZE=1024\n"
+                "HSS_EEPROM_SLOT_COUNT=32\n",
+            )
+
+            values, loaded_files = load_config(config, [])
+            cmake = generated_cmake(values, [], loaded_files)
+
+            self.assertIn("HSS_ENABLE_EEPROM_EMULATION=1", cmake)
+            self.assertIn("HSS_EEPROM_FLASH_ORIGIN=134281216", cmake)
+            self.assertIn("HSS_EEPROM_FLASH_SIZE=2048", cmake)
+            self.assertIn("HSS_EEPROM_PAGE_SIZE=1024", cmake)
+            self.assertIn("HSS_EEPROM_SLOT_COUNT=32", cmake)
+
+    def test_eeprom_requires_non_zero_geometry_when_enabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = self.write(root, "hss.conf", "HSS_ENABLE_EEPROM_EMULATION=y\n")
+
+            with self.assertRaisesRegex(ConfigError, "HSS_EEPROM_FLASH_ORIGIN"):
+                load_config(config, [])
+
+    def test_eeprom_slot_count_must_fit_flash_capacity(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = self.write(
+                root,
+                "hss.conf",
+                "HSS_ENABLE_EEPROM_EMULATION=y\n"
+                "HSS_EEPROM_FLASH_ORIGIN=0x0800F800\n"
+                "HSS_EEPROM_FLASH_SIZE=16\n"
+                "HSS_EEPROM_PAGE_SIZE=16\n"
+                "HSS_EEPROM_SLOT_COUNT=3\n",
+            )
+
+            with self.assertRaisesRegex(ConfigError, "HSS_EEPROM_SLOT_COUNT"):
+                load_config(config, [])
+
+    def test_eeprom_origin_must_be_page_aligned(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = self.write(
+                root,
+                "hss.conf",
+                "HSS_ENABLE_EEPROM_EMULATION=y\n"
+                "HSS_EEPROM_FLASH_ORIGIN=0x0800F801\n"
+                "HSS_EEPROM_FLASH_SIZE=2048\n"
+                "HSS_EEPROM_PAGE_SIZE=1024\n"
+                "HSS_EEPROM_SLOT_COUNT=32\n",
+            )
+
+            with self.assertRaisesRegex(ConfigError, "aligned to the EEPROM page size"):
+                load_config(config, [])
 
 
 if __name__ == "__main__":

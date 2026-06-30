@@ -210,6 +210,68 @@ metadata but stay out of `hss_config.h`.
 
 For details, see [`docs/config_system.md`](./config_system.md).
 
+### Flash-backed persistence
+
+Applications that want simple flash-backed persistence can enable the EEPROM
+emulation helper from `hss.conf`:
+
+```text
+HSS_ENABLE_EEPROM_EMULATION=y
+HSS_EEPROM_FLASH_ORIGIN=0x0800F800
+HSS_EEPROM_FLASH_SIZE=2048
+HSS_EEPROM_PAGE_SIZE=1024
+HSS_EEPROM_SLOT_COUNT=32
+```
+
+The selected board must declare EEPROM-emulation capability in
+`board_roles.cmake`:
+
+```cmake
+set(BOARD_ROLE_EEPROM_EMULATION ON)
+```
+
+When enabled, HSS validates the request during configure and generates a
+target-local linker script in the build directory so the reserved flash region
+is excluded from the application image automatically.
+
+The current flash backend supports the STM32F1 and STM32G0 board families
+bundled with this repository.
+
+Firmware can then persist small `uint16_t` values or register banks through the
+HAL wrapper:
+
+```c
+#include "hss_hal.h"
+
+static uint16_t holding_registers[16];
+
+static void app_init_persistence(void)
+{
+    if (hss_eeprom_init() != HSS_OK)
+    {
+        Error_Handler();
+    }
+
+    if (hss_eeprom_load_u16_array(0U, holding_registers, 16U) != HSS_OK)
+    {
+        Error_Handler();
+    }
+}
+
+static void app_store_register(uint16_t index, uint16_t value)
+{
+    holding_registers[index] = value;
+
+    if (hss_eeprom_write_u16(index, value) != HSS_OK)
+    {
+        Error_Handler();
+    }
+}
+```
+
+This first implementation is intentionally small and best suited for compact
+settings or Modbus register persistence.
+
 ## Board Lookup
 
 `hss_add_firmware(... BOARD <board> ...)` and `hss_select_board(<board>)` resolve boards in this order:

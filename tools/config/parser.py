@@ -4,7 +4,14 @@ import re
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from .model import ConfigError, ConfigValue, ConfigWarnings, SCHEMA, SourceLocation
+from .model import (
+    HSS_EEPROM_RECORD_SIZE_BYTES,
+    ConfigError,
+    ConfigValue,
+    ConfigWarnings,
+    SCHEMA,
+    SourceLocation,
+)
 
 
 KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
@@ -179,6 +186,7 @@ def load_config(
         loaded_files.append(path)
         merged.update(parse_file(path, warnings))
     apply_defaults(merged)
+    validate_merged_config(merged)
     return merged, loaded_files
 
 
@@ -192,3 +200,48 @@ def apply_defaults(values: dict[str, ConfigValue]) -> None:
                 kind=schema.kind,
                 source=default_source,
             )
+
+
+def validate_merged_config(values: dict[str, ConfigValue]) -> None:
+    if not bool(values["HSS_ENABLE_EEPROM_EMULATION"].value):
+        return
+
+    origin = int(values["HSS_EEPROM_FLASH_ORIGIN"].value)
+    size = int(values["HSS_EEPROM_FLASH_SIZE"].value)
+    page_size = int(values["HSS_EEPROM_PAGE_SIZE"].value)
+    slot_count = int(values["HSS_EEPROM_SLOT_COUNT"].value)
+
+    if origin == 0:
+        source = values["HSS_EEPROM_FLASH_ORIGIN"].source
+        raise ConfigError(f"{source.path}:{source.line}: 'HSS_EEPROM_FLASH_ORIGIN' must be non-zero when EEPROM emulation is enabled")
+    if size == 0:
+        source = values["HSS_EEPROM_FLASH_SIZE"].source
+        raise ConfigError(f"{source.path}:{source.line}: 'HSS_EEPROM_FLASH_SIZE' must be non-zero when EEPROM emulation is enabled")
+    if page_size == 0:
+        source = values["HSS_EEPROM_PAGE_SIZE"].source
+        raise ConfigError(f"{source.path}:{source.line}: 'HSS_EEPROM_PAGE_SIZE' must be non-zero when EEPROM emulation is enabled")
+    if slot_count == 0:
+        source = values["HSS_EEPROM_SLOT_COUNT"].source
+        raise ConfigError(f"{source.path}:{source.line}: 'HSS_EEPROM_SLOT_COUNT' must be non-zero when EEPROM emulation is enabled")
+    if size < HSS_EEPROM_RECORD_SIZE_BYTES:
+        source = values["HSS_EEPROM_FLASH_SIZE"].source
+        raise ConfigError(
+            f"{source.path}:{source.line}: 'HSS_EEPROM_FLASH_SIZE' must be >= {HSS_EEPROM_RECORD_SIZE_BYTES}"
+        )
+    if size % page_size != 0:
+        source = values["HSS_EEPROM_FLASH_SIZE"].source
+        raise ConfigError(
+            f"{source.path}:{source.line}: EEPROM flash size must be a multiple of the EEPROM page size"
+        )
+    if origin % page_size != 0:
+        source = values["HSS_EEPROM_FLASH_ORIGIN"].source
+        raise ConfigError(
+            f"{source.path}:{source.line}: EEPROM flash origin must be aligned to the EEPROM page size"
+        )
+
+    max_records = size // HSS_EEPROM_RECORD_SIZE_BYTES
+    if slot_count > max_records:
+        source = values["HSS_EEPROM_SLOT_COUNT"].source
+        raise ConfigError(
+            f"{source.path}:{source.line}: 'HSS_EEPROM_SLOT_COUNT' must be <= {max_records} for the configured EEPROM flash size"
+        )

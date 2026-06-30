@@ -1,6 +1,7 @@
 #pragma once
 
 #include "hss_console.h"
+#include "hss_eeprom.h"
 #include "hss_exti.h"
 #include "hss_gpio.h"
 #include "hss_hal_result.h"

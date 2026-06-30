@@ -214,8 +214,13 @@ Initial framework keys:
 
 - `HSS_ENABLE_FREEMODBUS`
 - `HSS_ENABLE_MAX31865`
+- `HSS_ENABLE_EEPROM_EMULATION`
 - `HSS_ENABLE_MODBUS_DEBUG`
 - `HSS_CONSOLE_STDIO_TIMEOUT_MS`
+- `HSS_EEPROM_FLASH_ORIGIN`
+- `HSS_EEPROM_FLASH_SIZE`
+- `HSS_EEPROM_PAGE_SIZE`
+- `HSS_EEPROM_SLOT_COUNT`
 
 Candidate future keys:
 
@@ -241,6 +246,13 @@ For each firmware target using config, generate:
 `hss_config.meta` can record the loaded files, active profiles, final values, and source locations for diagnostics. The exact format can be simple text or JSON.
 
 Values that affect which optional framework targets are built, such as `HSS_ENABLE_FREEMODBUS`, are parsed during `hss_add_firmware()`. The framework may then enable the requested optional module for that target. Existing CMake cache options remain supported as compatibility fallbacks when no config file is provided.
+
+EEPROM emulation is also configured from `hss.conf`. When
+`HSS_ENABLE_EEPROM_EMULATION=y`, the framework validates that the selected
+board declares EEPROM-emulation support in `board_roles.cmake`, then generates
+a build-local linker script that reserves the configured flash range from the
+end of the board FLASH region. The source linker script in the board directory
+is left unchanged.
 
 ## CMake API Roadmap
 

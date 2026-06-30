@@ -13,7 +13,7 @@ Current version: see [`version.txt`](./version.txt).
 - automatic board metadata generation from CubeMX output
 - one ARM GCC toolchain file for STM32 bare-metal builds
 - generated board roles such as status LED, console UART, Modbus UART/timer, RS-485 DE, and sensor SPI
-- HAL helpers for platform init, GPIO, EXTI dispatch, UART, console stdio, SPI, timers, status LED, and time delay
+- HAL helpers for platform init, GPIO, EXTI dispatch, UART, console stdio, SPI, timers, status LED, time delay, and flash-backed EEPROM emulation
 - optional FreeModbus integration and a native MAX31865 driver
 - example boards and firmware projects under [`examples/`](./examples/)
 
@@ -309,6 +309,7 @@ Example firmware projects live in [`examples/`](./examples/):
 - `hello_blink`: copyable starter project for platform init plus status LED blink
 - `blue_pill_minimal`: Blue Pill smoke test with console/status LED
 - `stm32g0_minimal`: STM32G0 smoke test
+- `eeprom_persistence_demo`: minimal flash persistence example using the EEPROM emulation helper
 - `blue_pill_modbus_slave`: first Modbus RTU slave example
 
 Temporary reference boards live in [`examples/boards/`](./examples/boards/). Production applications should keep boards in the application repository and set `HSS_BOARD_PATHS`.

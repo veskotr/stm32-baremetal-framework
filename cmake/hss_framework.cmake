@@ -527,6 +527,11 @@ ${SENSOR_CS_DEFINES}${SENSOR_SPI_CONFIG_DEFINES}")
     endforeach()
     string(REPLACE "#define HSS_BOARD_EXTI_ROLE_COUNT 0" "#define HSS_BOARD_EXTI_ROLE_COUNT ${EXTI_ROLE_COUNT}" EXTI_DEFINES "${EXTI_DEFINES}")
 
+    set(EEPROM_DEFINES "#define HSS_BOARD_HAS_EEPROM_EMULATION 0\n")
+    if (DEFINED BOARD_ROLE_EEPROM_EMULATION AND BOARD_ROLE_EEPROM_EMULATION)
+        set(EEPROM_DEFINES "#define HSS_BOARD_HAS_EEPROM_EMULATION 1\n")
+    endif()
+
     if (EXTI_ROLE_COUNT GREATER 0)
         set(IRQ_FUNCTIONS "")
         foreach(EXTI_HANDLER IN LISTS EXTI_HANDLER_NAMES)
@@ -559,7 +564,8 @@ ${DEBUG_UART_DEFINES}
 ${MODBUS_UART_DEFINES}
 ${MODBUS_TIMER_DEFINES}
 ${SENSOR_SPI_DEFINES}
-${EXTI_DEFINES}")
+${EXTI_DEFINES}
+${EEPROM_DEFINES}")
 
     set(${OUT_INCLUDE_DIR} "${ROLE_INCLUDE_DIR}" PARENT_SCOPE)
     set(${OUT_IRQ_SOURCE} "${EXTI_IRQ_SOURCE}" PARENT_SCOPE)
@@ -610,6 +616,136 @@ function(hss_collect_hal_sources OUT_VAR HAL_DRIVER_DIR BOARD_CORE_INCLUDE_DIR)
     set(${OUT_VAR} "${HAL_SOURCES}" PARENT_SCOPE)
 endfunction()
 
+function(hss_parse_memory_size OUT_VAR SIZE_TEXT)
+    string(STRIP "${SIZE_TEXT}" NORMALIZED_SIZE)
+    string(TOUPPER "${NORMALIZED_SIZE}" NORMALIZED_SIZE)
+
+    if (NORMALIZED_SIZE MATCHES "^[0-9]+K$")
+        string(REGEX REPLACE "K$" "" SIZE_NUMBER "${NORMALIZED_SIZE}")
+        math(EXPR SIZE_BYTES "${SIZE_NUMBER} * 1024")
+    elseif (NORMALIZED_SIZE MATCHES "^[0-9]+M$")
+        string(REGEX REPLACE "M$" "" SIZE_NUMBER "${NORMALIZED_SIZE}")
+        math(EXPR SIZE_BYTES "${SIZE_NUMBER} * 1024 * 1024")
+    else()
+        math(EXPR SIZE_BYTES "${NORMALIZED_SIZE}")
+    endif()
+
+    set(${OUT_VAR} "${SIZE_BYTES}" PARENT_SCOPE)
+endfunction()
+
+function(hss_format_memory_size OUT_VAR SIZE_BYTES)
+    math(EXPR SIZE_REMAINDER "${SIZE_BYTES} % 1024")
+    if (SIZE_REMAINDER EQUAL 0)
+        math(EXPR SIZE_KIB "${SIZE_BYTES} / 1024")
+        set(${OUT_VAR} "${SIZE_KIB}K" PARENT_SCOPE)
+    else()
+        set(${OUT_VAR} "${SIZE_BYTES}" PARENT_SCOPE)
+    endif()
+endfunction()
+
+function(hss_generate_linker_script_from_config OUT_VAR BOARD_TARGET_SUFFIX BOARD_SOURCE_LINKER_SCRIPT RESERVE_ORIGIN RESERVE_SIZE)
+    set(GENERATED_LINKER_DIR "${CMAKE_BINARY_DIR}/hss_generated/${BOARD_TARGET_SUFFIX}")
+    set(GENERATED_LINKER_SCRIPT "${GENERATED_LINKER_DIR}/linker.ld")
+
+    if (NOT EXISTS "${BOARD_SOURCE_LINKER_SCRIPT}")
+        message(FATAL_ERROR "Source linker script not found: ${BOARD_SOURCE_LINKER_SCRIPT}")
+    endif()
+
+    file(READ "${BOARD_SOURCE_LINKER_SCRIPT}" LINKER_CONTENT)
+    string(REGEX MATCH "([ \t]*FLASH \\(rx\\)[ \t]*:[ \t]*ORIGIN = [^,]+,[ \t]*LENGTH = )[^\n]+" FLASH_LINE "${LINKER_CONTENT}")
+    if (NOT FLASH_LINE)
+        message(FATAL_ERROR "Could not find FLASH memory definition in ${BOARD_SOURCE_LINKER_SCRIPT}")
+    endif()
+
+    string(REGEX MATCH "^[ \t]*FLASH \\(rx\\)[ \t]*:[ \t]*ORIGIN = ([^,]+),[ \t]*LENGTH = ([^\n]+)$" _ "${FLASH_LINE}")
+    set(REGION_ORIGIN_TEXT "${CMAKE_MATCH_1}")
+    set(REGION_LENGTH_TEXT "${CMAKE_MATCH_2}")
+    math(EXPR RESERVE_ORIGIN_BYTES "${RESERVE_ORIGIN}")
+    math(EXPR RESERVE_SIZE_BYTES "${RESERVE_SIZE}")
+    math(EXPR RESERVE_END_BYTES "${RESERVE_ORIGIN_BYTES} + ${RESERVE_SIZE_BYTES}")
+    math(EXPR REGION_ORIGIN_BYTES "${REGION_ORIGIN_TEXT}")
+    hss_parse_memory_size(REGION_LENGTH_BYTES "${REGION_LENGTH_TEXT}")
+    math(EXPR REGION_END_BYTES "${REGION_ORIGIN_BYTES} + ${REGION_LENGTH_BYTES}")
+
+    if (RESERVE_ORIGIN_BYTES LESS REGION_ORIGIN_BYTES OR RESERVE_END_BYTES GREATER REGION_END_BYTES)
+        message(FATAL_ERROR
+                "EEPROM reservation ${RESERVE_ORIGIN_BYTES}..${RESERVE_END_BYTES} is outside the FLASH region "
+                "${REGION_ORIGIN_BYTES}..${REGION_END_BYTES}")
+    endif()
+    if (NOT RESERVE_END_BYTES EQUAL REGION_END_BYTES)
+        message(FATAL_ERROR
+                "EEPROM reservation must end at the end of FLASH; expected ${REGION_END_BYTES}, got ${RESERVE_END_BYTES}")
+    endif()
+
+    math(EXPR NEW_LENGTH_BYTES "${RESERVE_ORIGIN_BYTES} - ${REGION_ORIGIN_BYTES}")
+    if (NEW_LENGTH_BYTES LESS_EQUAL 0)
+        message(FATAL_ERROR "EEPROM reservation consumes the entire FLASH region")
+    endif()
+
+    hss_format_memory_size(NEW_LENGTH_TEXT "${NEW_LENGTH_BYTES}")
+    set(NEW_FLASH_LINE "${CMAKE_MATCH_0}")
+    string(REGEX REPLACE "([ \t]*FLASH \\(rx\\)[ \t]*:[ \t]*ORIGIN = [^,]+,[ \t]*LENGTH = )[^\n]+"
+            "\\1${NEW_LENGTH_TEXT}"
+            NEW_FLASH_LINE "${NEW_FLASH_LINE}")
+    string(REPLACE "${FLASH_LINE}" "${NEW_FLASH_LINE}\n/* HSS reserved ${RESERVE_SIZE_BYTES} bytes at ${RESERVE_ORIGIN_BYTES} for flash-backed persistence. */"
+            LINKER_CONTENT "${LINKER_CONTENT}")
+
+    file(MAKE_DIRECTORY "${GENERATED_LINKER_DIR}")
+    file(WRITE "${GENERATED_LINKER_SCRIPT}" "${LINKER_CONTENT}")
+    set(${OUT_VAR} "${GENERATED_LINKER_SCRIPT}" PARENT_SCOPE)
+endfunction()
+
+function(hss_validate_eeprom_config TARGET_NAME)
+    if (NOT DEFINED HSS_CONFIG_VALUE_HSS_EEPROM_FLASH_ORIGIN
+            OR NOT DEFINED HSS_CONFIG_VALUE_HSS_EEPROM_FLASH_SIZE
+            OR NOT DEFINED HSS_CONFIG_VALUE_HSS_EEPROM_PAGE_SIZE
+            OR NOT DEFINED HSS_CONFIG_VALUE_HSS_EEPROM_SLOT_COUNT)
+        message(FATAL_ERROR
+                "Config enabled EEPROM emulation for '${TARGET_NAME}', but EEPROM flash values are missing")
+    endif()
+
+    math(EXPR HSS_EEPROM_FLASH_ORIGIN_BYTES "${HSS_CONFIG_VALUE_HSS_EEPROM_FLASH_ORIGIN}")
+    math(EXPR HSS_EEPROM_FLASH_SIZE_BYTES "${HSS_CONFIG_VALUE_HSS_EEPROM_FLASH_SIZE}")
+    math(EXPR HSS_EEPROM_PAGE_SIZE_BYTES "${HSS_CONFIG_VALUE_HSS_EEPROM_PAGE_SIZE}")
+    math(EXPR HSS_EEPROM_SLOT_COUNT_VALUE "${HSS_CONFIG_VALUE_HSS_EEPROM_SLOT_COUNT}")
+
+    if (HSS_EEPROM_FLASH_ORIGIN_BYTES LESS_EQUAL 0)
+        message(FATAL_ERROR
+                "Config enabled EEPROM emulation for '${TARGET_NAME}', but HSS_EEPROM_FLASH_ORIGIN must be non-zero")
+    endif()
+    if (HSS_EEPROM_FLASH_SIZE_BYTES LESS_EQUAL 0)
+        message(FATAL_ERROR
+                "Config enabled EEPROM emulation for '${TARGET_NAME}', but HSS_EEPROM_FLASH_SIZE must be non-zero")
+    endif()
+    if (HSS_EEPROM_PAGE_SIZE_BYTES LESS_EQUAL 0)
+        message(FATAL_ERROR
+                "Config enabled EEPROM emulation for '${TARGET_NAME}', but HSS_EEPROM_PAGE_SIZE must be non-zero")
+    endif()
+    if (HSS_EEPROM_SLOT_COUNT_VALUE LESS_EQUAL 0)
+        message(FATAL_ERROR
+                "Config enabled EEPROM emulation for '${TARGET_NAME}', but HSS_EEPROM_SLOT_COUNT must be non-zero")
+    endif()
+    math(EXPR HSS_EEPROM_SIZE_REMAINDER "${HSS_EEPROM_FLASH_SIZE_BYTES} % ${HSS_EEPROM_PAGE_SIZE_BYTES}")
+    if (NOT HSS_EEPROM_SIZE_REMAINDER EQUAL 0)
+        message(FATAL_ERROR
+                "Config enabled EEPROM emulation for '${TARGET_NAME}', but HSS_EEPROM_FLASH_SIZE must be a multiple of HSS_EEPROM_PAGE_SIZE")
+    endif()
+    math(EXPR HSS_EEPROM_ORIGIN_REMAINDER "${HSS_EEPROM_FLASH_ORIGIN_BYTES} % ${HSS_EEPROM_PAGE_SIZE_BYTES}")
+    if (NOT HSS_EEPROM_ORIGIN_REMAINDER EQUAL 0)
+        message(FATAL_ERROR
+                "Config enabled EEPROM emulation for '${TARGET_NAME}', but HSS_EEPROM_FLASH_ORIGIN must be aligned to HSS_EEPROM_PAGE_SIZE")
+    endif()
+    if (HSS_EEPROM_FLASH_SIZE_BYTES LESS 8)
+        message(FATAL_ERROR
+                "Config enabled EEPROM emulation for '${TARGET_NAME}', but HSS_EEPROM_FLASH_SIZE must be at least 8 bytes")
+    endif()
+    math(EXPR HSS_EEPROM_MAX_RECORDS "${HSS_EEPROM_FLASH_SIZE_BYTES} / 8")
+    if (HSS_EEPROM_SLOT_COUNT_VALUE GREATER HSS_EEPROM_MAX_RECORDS)
+        message(FATAL_ERROR
+                "Config enabled EEPROM emulation for '${TARGET_NAME}', but HSS_EEPROM_SLOT_COUNT=${HSS_EEPROM_SLOT_COUNT_VALUE} exceeds the maximum record capacity ${HSS_EEPROM_MAX_RECORDS}")
+    endif()
+endfunction()
+
 function(hss_register_board BOARD_NAME)
     if (HSS_ACTIVE_BOARD AND NOT HSS_ACTIVE_BOARD STREQUAL "${BOARD_NAME}")
         message(FATAL_ERROR
@@ -632,6 +768,11 @@ function(hss_register_board BOARD_NAME)
     if (EXISTS "${BOARD_DIR}/board_roles.cmake")
         include("${BOARD_DIR}/board_roles.cmake")
     endif()
+    set(BOARD_HAS_EEPROM_EMULATION OFF)
+    if (DEFINED BOARD_ROLE_EEPROM_EMULATION AND BOARD_ROLE_EEPROM_EMULATION)
+        set(BOARD_HAS_EEPROM_EMULATION ON)
+    endif()
+    string(TOUPPER "${BOARD_MCU_FAMILY}" BOARD_MCU_FAMILY_UPPER)
     hss_write_board_roles_header("${BOARD_TARGET_SUFFIX}" BOARD_ROLE_INCLUDE_DIR BOARD_IRQ_SOURCE)
 
     hss_collect_hal_sources(BOARD_HAL_SOURCES "${BOARD_HAL_DRIVER_DIR}" "${BOARD_CORE_INCLUDE_DIR}")
@@ -656,6 +797,7 @@ function(hss_register_board BOARD_NAME)
 
     target_compile_definitions("${BOARD_TARGET}" PUBLIC
             USE_HAL_DRIVER
+            "HSS_BOARD_MCU_FAMILY_${BOARD_MCU_FAMILY_UPPER}"
             ${BOARD_MCU_DEFINE}
     )
 
@@ -668,7 +810,9 @@ function(hss_register_board BOARD_NAME)
     set_target_properties("${BOARD_TARGET}" PROPERTIES
             HSS_BOARD_NAME "${BOARD_NAME}"
             HSS_BOARD_DIR "${BOARD_DIR}"
+            HSS_SOURCE_LINKER_SCRIPT "${BOARD_LINKER_SCRIPT}"
             HSS_LINKER_SCRIPT "${BOARD_LINKER_SCRIPT}"
+            HSS_HAS_EEPROM_EMULATION "${BOARD_HAS_EEPROM_EMULATION}"
             HSS_OPENOCD_INTERFACE "${BOARD_OPENOCD_INTERFACE}"
             HSS_OPENOCD_TARGET "${BOARD_OPENOCD_TARGET}"
             HSS_OPENOCD_TRANSPORT "${BOARD_OPENOCD_TRANSPORT}"
@@ -746,6 +890,28 @@ function(hss_add_firmware TARGET_NAME)
         message(STATUS "Generated HSS config for ${TARGET_NAME} with profiles: ${HSS_CONFIG_ACTIVE_PROFILES}")
     endif()
 
+    get_target_property(BOARD_NAME "${HSS_ACTIVE_BOARD_TARGET}" HSS_BOARD_NAME)
+    get_target_property(BOARD_SOURCE_LINKER_SCRIPT "${HSS_ACTIVE_BOARD_TARGET}" HSS_SOURCE_LINKER_SCRIPT)
+    get_target_property(BOARD_HAS_EEPROM_EMULATION "${HSS_ACTIVE_BOARD_TARGET}" HSS_HAS_EEPROM_EMULATION)
+    hss_normalize_target_name(BOARD_TARGET_SUFFIX "${BOARD_NAME}")
+
+    set(HSS_FIRMWARE_LINKER_SCRIPT "${BOARD_SOURCE_LINKER_SCRIPT}")
+    if (DEFINED HSS_CONFIG_VALUE_HSS_ENABLE_EEPROM_EMULATION AND HSS_CONFIG_VALUE_HSS_ENABLE_EEPROM_EMULATION)
+        if (NOT BOARD_HAS_EEPROM_EMULATION)
+            message(FATAL_ERROR
+                    "Config enabled EEPROM emulation for '${TARGET_NAME}', but board '${BOARD_NAME}' does not declare support in board_roles.cmake")
+        endif()
+        hss_validate_eeprom_config("${TARGET_NAME}")
+
+        hss_generate_linker_script_from_config(
+                HSS_FIRMWARE_LINKER_SCRIPT
+                "${BOARD_TARGET_SUFFIX}"
+                "${BOARD_SOURCE_LINKER_SCRIPT}"
+                "${HSS_CONFIG_VALUE_HSS_EEPROM_FLASH_ORIGIN}"
+                "${HSS_CONFIG_VALUE_HSS_EEPROM_FLASH_SIZE}"
+        )
+    endif()
+
     add_executable("${TARGET_NAME}"
             ${FIRMWARE_SOURCES}
             $<TARGET_OBJECTS:${HSS_ACTIVE_BOARD_TARGET}>
@@ -756,7 +922,6 @@ function(hss_add_firmware TARGET_NAME)
             "${HSS_ACTIVE_BOARD_TARGET}"
     )
 
-    get_target_property(HSS_LINKER_SCRIPT "${HSS_ACTIVE_BOARD_TARGET}" HSS_LINKER_SCRIPT)
     get_target_property(HSS_CPU_FLAGS "${HSS_ACTIVE_BOARD_TARGET}" HSS_CPU_FLAGS)
 
     set_target_properties("${TARGET_NAME}" PROPERTIES
@@ -782,7 +947,7 @@ function(hss_add_firmware TARGET_NAME)
 
     target_link_options("${TARGET_NAME}" PRIVATE
             ${HSS_CPU_FLAGS}
-            "SHELL:-T${HSS_LINKER_SCRIPT}"
+            "SHELL:-T${HSS_FIRMWARE_LINKER_SCRIPT}"
             "SHELL:-Wl,-Map=$<TARGET_FILE_DIR:${TARGET_NAME}>/${TARGET_NAME}.map"
             "SHELL:-Wl,--undefined=__io_putchar"
             "SHELL:-Wl,--undefined=__io_getchar"

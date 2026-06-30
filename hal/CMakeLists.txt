@@ -2,6 +2,7 @@ add_library(hss_hal STATIC
         src/gpio.c
         src/console.c
         src/console_stdio.c
+        src/eeprom.c
         src/exti.c
         src/irq.c
         src/modbus_timer.c

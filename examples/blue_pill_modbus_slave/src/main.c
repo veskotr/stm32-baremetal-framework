@@ -7,7 +7,44 @@
 #define MODBUS_REGISTER_COUNT 16U
 
 static uint16_t holding_registers[MODBUS_REGISTER_COUNT];
+static uint16_t persisted_holding_registers[MODBUS_REGISTER_COUNT];
 static uint16_t input_registers[MODBUS_REGISTER_COUNT];
+
+static void app_init_persistence(void)
+{
+    if (hss_eeprom_init() != HSS_OK)
+    {
+        Error_Handler();
+    }
+
+    if (hss_eeprom_load_u16_array(0U, holding_registers, MODBUS_REGISTER_COUNT) != HSS_OK)
+    {
+        Error_Handler();
+    }
+
+    for (uint16_t index = 0U; index < MODBUS_REGISTER_COUNT; ++index)
+    {
+        persisted_holding_registers[index] = holding_registers[index];
+    }
+}
+
+static void app_persist_changed_holding_registers(void)
+{
+    for (uint16_t index = 0U; index < MODBUS_REGISTER_COUNT; ++index)
+    {
+        if (holding_registers[index] == persisted_holding_registers[index])
+        {
+            continue;
+        }
+
+        if (hss_eeprom_write_u16(index, holding_registers[index]) != HSS_OK)
+        {
+            Error_Handler();
+        }
+
+        persisted_holding_registers[index] = holding_registers[index];
+    }
+}
 
 static void app_init_modbus(void)
 {
@@ -37,6 +74,7 @@ int main(void)
         Error_Handler();
     }
 
+    app_init_persistence();
     app_init_modbus();
 
     uint32_t last_status_tick = HAL_GetTick();
@@ -47,6 +85,7 @@ int main(void)
         {
             Error_Handler();
         }
+        app_persist_changed_holding_registers();
 
         const uint32_t now = HAL_GetTick();
         if ((now - last_status_tick) >= 500U)
