@@ -6,7 +6,7 @@ This document captures the current state of `HSS STM32 framework` for future cod
 
 `HSS STM32 framework` reads its current version from `version.txt`.
 
-The current state is v0.5.0 candidate work:
+The current state is v0.6.0 candidate work:
 
 - external/app-owned CubeMX board projects discovered through `HSS_BOARD_PATHS`
 - temporary reference board projects in `examples/boards/`
@@ -27,6 +27,7 @@ The current state is v0.5.0 candidate work:
 - patch validation for CubeMX user-code hooks and generated `MX_*_Init()` calls, including the TIM2 Modbus RTU timer fix
 - hardware-validated Blue Pill USART1 FreeModbus RTU slave communication with an ESP32 master
 - profile-aware HSS config system with generated C/CMake/meta outputs and config-driven FreeModbus/MAX31865 feature selection
+- flash-backed EEPROM emulation with config-driven linker reservation and persistence helpers
 - FetchContent-first external project documentation
 - native host test helpers and framework self-tests enabled by `HSS_ENABLE_TESTS=ON`
 - host fake STM32/HAL support for GPIO/SPI tests
@@ -282,7 +283,7 @@ include(FetchContent)
 FetchContent_Declare(
         hss_framework
         GIT_REPOSITORY https://github.com/veskotr/stm32-baremetal-framework.git
-        GIT_TAG v0.5.0
+        GIT_TAG v0.6.0
 )
 FetchContent_MakeAvailable(hss_framework)
 

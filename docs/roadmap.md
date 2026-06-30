@@ -40,10 +40,11 @@ Current completed work:
 - validated Blue Pill USART1 FreeModbus RTU holding-register read/write on hardware
 - moved temporary Modbus debug counters behind `HSS_ENABLE_MODBUS_DEBUG`
 - added the v0.4.0 project config system with base config files, profile overlays, optional profiles, explicit profile files, generated C/CMake/meta outputs, C-facing custom macros, schema help, parser tests, and config-driven FreeModbus/MAX31865 feature selection
-- added the v0.5.0 test/CI and generic board-capability work: `HSS_ENABLE_TESTS`, `hss_add_host_test`, `hss_add_host_integration_test`, a bundled lightweight Unity-style runner, host STM32 GPIO/SPI/EXTI fakes, `hss_hal_host`, initial result/GPIO/SPI/EXTI tests, generic EXTI roles, and sensor SPI compatibility helpers
+- added the v0.6.0 test/CI, generic board-capability, and flash-backed persistence work: `HSS_ENABLE_TESTS`, `hss_add_host_test`, `hss_add_host_integration_test`, a bundled lightweight Unity-style runner, host STM32 GPIO/SPI/EXTI fakes, `hss_hal_host`, initial result/GPIO/SPI/EXTI tests, generic EXTI roles, sensor SPI compatibility helpers, EEPROM emulation, linker reservation generation, and the persistence demo example
+- added the v0.6.0 flash-backed persistence work: `HSS_ENABLE_EEPROM_EMULATION`, EEPROM geometry config, linker reservation generation, STM32F1/G0 backend support, config validation, and the new persistence demo example
 - added FetchContent-first external-project documentation and GitHub Actions CI lanes for Python tests, host C tests, and firmware build checks
 
-`0.1.0` should be treated as the first scaffold baseline. `0.2.0` is the HAL-helper and developer-workflow milestone. `0.2.1` is the Modbus/CubeMX generated-glue bugfix patch after first hardware validation. `0.3.0` is the repository cleanup release that promotes the framework to the root and moves the temp transmitter pilot into its own project. `0.4.0` is the project config system release. `0.5.0` is the test/CI scaffold and generic board-capability release.
+`0.1.0` should be treated as the first scaffold baseline. `0.2.0` is the HAL-helper and developer-workflow milestone. `0.2.1` is the Modbus/CubeMX generated-glue bugfix patch after first hardware validation. `0.3.0` is the repository cleanup release that promotes the framework to the root and moves the temp transmitter pilot into its own project. `0.4.0` is the project config system release. `0.5.0` is the test/CI scaffold and generic board-capability release. `0.6.0` is the EEPROM emulation and flash-backed persistence release.
 
 ## Confirmed Design Decisions
 

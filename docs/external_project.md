@@ -31,7 +31,7 @@ include(FetchContent)
 FetchContent_Declare(
         hss_framework
         GIT_REPOSITORY https://github.com/veskotr/stm32-baremetal-framework.git
-        GIT_TAG v0.5.0
+        GIT_TAG v0.6.0
 )
 FetchContent_MakeAvailable(hss_framework)
 
@@ -108,7 +108,7 @@ include(FetchContent)
 FetchContent_Declare(
         hss_framework
         GIT_REPOSITORY https://github.com/veskotr/stm32-baremetal-framework.git
-        GIT_TAG v0.5.0
+        GIT_TAG v0.6.0
 )
 FetchContent_MakeAvailable(hss_framework)
 
