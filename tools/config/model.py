@@ -36,6 +36,11 @@ SCHEMA = {
         False,
         "Enable flash-backed EEPROM emulation support for this firmware target.",
     ),
+    "HSS_ENABLE_WATCHDOG": SchemaEntry(
+        "bool",
+        False,
+        "Enable watchdog helper code for this firmware target.",
+    ),
     "HSS_CONSOLE_STDIO_TIMEOUT_MS": SchemaEntry(
         "int",
         1000,

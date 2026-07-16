@@ -13,6 +13,7 @@ add_library(hss_hal STATIC
         src/status_led.c
         src/timer.c
         src/time.c
+        src/watchdog.c
         src/uart.c
 )
 set_target_properties(hss_hal PROPERTIES EXCLUDE_FROM_ALL TRUE)

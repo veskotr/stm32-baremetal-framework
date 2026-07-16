@@ -183,6 +183,7 @@ Expected focus areas:
 - GPIO
 - GPIO interrupts / EXTI callback dispatch
 - timer
+- watchdog
 - delay/time
 - critical section helpers
 

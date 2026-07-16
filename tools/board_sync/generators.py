@@ -228,6 +228,7 @@ def write_roles(board_dir: Path, values: dict[str, str]) -> Path:
 # Rerunning the sync script will not overwrite it.
 
 # Examples:
+# set(BOARD_ROLE_WATCHDOG IWDG)
 # set(BOARD_ROLE_CONSOLE_UART USART1)
 # set(BOARD_ROLE_DEBUG_UART USART2)
 # set(BOARD_ROLE_MODBUS_UART USART1)

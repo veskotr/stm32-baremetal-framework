@@ -3,14 +3,18 @@
 #include <string.h>
 
 static HAL_StatusTypeDef fake_spi_next_status = HAL_OK;
+static HAL_StatusTypeDef fake_watchdog_next_status = HAL_OK;
 static hss_fake_spi_state_t fake_spi_state;
 static hss_fake_nvic_state_t fake_nvic_state;
+static hss_fake_watchdog_state_t fake_watchdog_state;
 
 void hss_host_fakes_reset(void)
 {
     fake_spi_next_status = HAL_OK;
+    fake_watchdog_next_status = HAL_OK;
     memset(&fake_spi_state, 0, sizeof(fake_spi_state));
     memset(&fake_nvic_state, 0, sizeof(fake_nvic_state));
+    memset(&fake_watchdog_state, 0, sizeof(fake_watchdog_state));
 }
 
 void hss_fake_spi_set_next_status(HAL_StatusTypeDef status)
@@ -40,6 +44,16 @@ const hss_fake_spi_state_t *hss_fake_spi_state(void)
 const hss_fake_nvic_state_t *hss_fake_nvic_state(void)
 {
     return &fake_nvic_state;
+}
+
+void hss_fake_watchdog_set_next_status(HAL_StatusTypeDef status)
+{
+    fake_watchdog_next_status = status;
+}
+
+const hss_fake_watchdog_state_t *hss_fake_watchdog_state(void)
+{
+    return &fake_watchdog_state;
 }
 
 GPIO_PinState hss_fake_gpio_output_state(GPIO_TypeDef *port, uint16_t pin)
@@ -169,4 +183,36 @@ HAL_StatusTypeDef HAL_SPI_TransmitReceive(SPI_HandleTypeDef *hspi,
         memcpy(pRxData, fake_spi_state.rx_seed, Size);
     }
     return fake_spi_next_status;
+}
+
+HAL_StatusTypeDef HAL_IWDG_Init(IWDG_HandleTypeDef *hiwdg)
+{
+    fake_watchdog_state.kind = HSS_FAKE_WATCHDOG_KIND_IWDG;
+    fake_watchdog_state.operation = HSS_FAKE_WATCHDOG_OP_INIT;
+    fake_watchdog_state.watchdog = hiwdg;
+    return fake_watchdog_next_status;
+}
+
+HAL_StatusTypeDef HAL_IWDG_Refresh(IWDG_HandleTypeDef *hiwdg)
+{
+    fake_watchdog_state.kind = HSS_FAKE_WATCHDOG_KIND_IWDG;
+    fake_watchdog_state.operation = HSS_FAKE_WATCHDOG_OP_REFRESH;
+    fake_watchdog_state.watchdog = hiwdg;
+    return fake_watchdog_next_status;
+}
+
+HAL_StatusTypeDef HAL_WWDG_Init(WWDG_HandleTypeDef *hwwdg)
+{
+    fake_watchdog_state.kind = HSS_FAKE_WATCHDOG_KIND_WWDG;
+    fake_watchdog_state.operation = HSS_FAKE_WATCHDOG_OP_INIT;
+    fake_watchdog_state.watchdog = hwwdg;
+    return fake_watchdog_next_status;
+}
+
+HAL_StatusTypeDef HAL_WWDG_Refresh(WWDG_HandleTypeDef *hwwdg)
+{
+    fake_watchdog_state.kind = HSS_FAKE_WATCHDOG_KIND_WWDG;
+    fake_watchdog_state.operation = HSS_FAKE_WATCHDOG_OP_REFRESH;
+    fake_watchdog_state.watchdog = hwwdg;
+    return fake_watchdog_next_status;
 }

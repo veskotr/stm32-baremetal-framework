@@ -3,6 +3,7 @@
 # Rerunning the sync script will not overwrite it.
 
 # Examples:
+# set(BOARD_ROLE_WATCHDOG IWDG)
 set(BOARD_ROLE_MODBUS_TIMER TIM2)
 # TODO: enable console/debug after CubeMX regenerates USART2 and exposes huart2.
 # set(BOARD_ROLE_CONSOLE_UART USART2)

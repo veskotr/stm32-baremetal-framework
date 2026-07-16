@@ -2,6 +2,8 @@
 
 #include <stdint.h>
 
+#define HAL_IWDG_MODULE_ENABLED 1
+#define HAL_WWDG_MODULE_ENABLED 1
 #define HAL_SPI_MODULE_ENABLED 1
 
 #define SPI_POLARITY_LOW 0U
@@ -78,6 +80,16 @@ typedef struct
     SPI_InitTypeDef Init;
 } SPI_HandleTypeDef;
 
+typedef struct
+{
+    int instance;
+} IWDG_HandleTypeDef;
+
+typedef struct
+{
+    int instance;
+} WWDG_HandleTypeDef;
+
 GPIO_PinState HAL_GPIO_ReadPin(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin);
 void HAL_GPIO_WritePin(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, GPIO_PinState PinState);
 void HAL_GPIO_TogglePin(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin);
@@ -96,6 +108,11 @@ HAL_StatusTypeDef HAL_SPI_Receive(SPI_HandleTypeDef *hspi,
                                   uint32_t Timeout);
 HAL_StatusTypeDef HAL_SPI_TransmitReceive(SPI_HandleTypeDef *hspi,
                                           uint8_t *pTxData,
-                                          uint8_t *pRxData,
-                                          uint16_t Size,
-                                          uint32_t Timeout);
+                                  uint8_t *pRxData,
+                                  uint16_t Size,
+                                  uint32_t Timeout);
+
+HAL_StatusTypeDef HAL_IWDG_Init(IWDG_HandleTypeDef *hiwdg);
+HAL_StatusTypeDef HAL_IWDG_Refresh(IWDG_HandleTypeDef *hiwdg);
+HAL_StatusTypeDef HAL_WWDG_Init(WWDG_HandleTypeDef *hwwdg);
+HAL_StatusTypeDef HAL_WWDG_Refresh(WWDG_HandleTypeDef *hwwdg);

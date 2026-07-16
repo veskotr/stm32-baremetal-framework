@@ -352,6 +352,36 @@ Non-goals for this phase:
 - making the framework own product-specific names such as `sensor_drdy`
 - expanding status LED-style semantic roles before the generic role model is clearer
 
+### Phase 9: dependency and component readiness
+
+Goal:
+- keep HSS small while making reusable application components practical in a
+  separate repository.
+
+The accepted boundary is recorded in
+[`0003-separate-framework-components-and-products.md`](decisions/0003-separate-framework-components-and-products.md):
+HSS provides generic STM32 capabilities and tooling; a component repository
+provides reusable behavior; products own boards, configuration, and composition.
+
+Technical-debt priority:
+
+1. Define and document stable granular CMake dependencies for `hss_common`,
+   `hss_hal`, each driver, and each protocol. Keep `hss_framework` only as a
+   convenience umbrella target.
+2. Make optional drivers and protocols opt-in by default unless a dependency is
+   fundamental to every HSS application.
+3. Create a small external component-repository proof project that consumes HSS
+   through `FetchContent`, links only narrow targets, and runs host tests.
+4. Prefer component APIs that accept explicit handles, descriptors, or callbacks
+   over board-role globals. Products adapt board roles to those APIs.
+5. Add dependency-focused CMake coverage so an optional integration cannot be
+   pulled into a component unexpectedly.
+
+Non-goals:
+- moving application components into HSS;
+- replacing STM32 HAL types with a cross-vendor abstraction;
+- making the framework own product policy or application `main()` functions.
+
 ## Current Verification Commands
 
 Run the host tests after changing framework C helpers, host fakes, or test CMake:

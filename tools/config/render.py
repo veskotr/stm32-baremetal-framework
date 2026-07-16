@@ -66,6 +66,7 @@ def generated_cmake(values: dict[str, ConfigValue], profiles: list[str], loaded_
         if key in {
             "HSS_ENABLE_MODBUS_DEBUG",
             "HSS_ENABLE_EEPROM_EMULATION",
+            "HSS_ENABLE_WATCHDOG",
             "HSS_CONSOLE_STDIO_TIMEOUT_MS",
             "HSS_EEPROM_FLASH_ORIGIN",
             "HSS_EEPROM_FLASH_SIZE",

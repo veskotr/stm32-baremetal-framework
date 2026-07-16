@@ -149,6 +149,16 @@ class ConfigGenerateTests(unittest.TestCase):
             self.assertIn("HSS_ENABLE_MAX31865", values)
             self.assertFalse(values["HSS_ENABLE_MAX31865"].value)
 
+    def test_watchdog_schema_default_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = self.write(root, "hss.conf", "")
+
+            values, _ = load_config(config, [])
+
+            self.assertIn("HSS_ENABLE_WATCHDOG", values)
+            self.assertFalse(values["HSS_ENABLE_WATCHDOG"].value)
+
     def test_eeprom_schema_defaults_exist(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -211,6 +221,16 @@ class ConfigGenerateTests(unittest.TestCase):
             self.assertIn("HSS_EEPROM_FLASH_SIZE=2048", cmake)
             self.assertIn("HSS_EEPROM_PAGE_SIZE=1024", cmake)
             self.assertIn("HSS_EEPROM_SLOT_COUNT=32", cmake)
+
+    def test_watchdog_value_is_included_in_framework_compile_definitions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = self.write(root, "hss.conf", "HSS_ENABLE_WATCHDOG=y\n")
+
+            values, loaded_files = load_config(config, [])
+            cmake = generated_cmake(values, [], loaded_files)
+
+            self.assertIn("HSS_ENABLE_WATCHDOG=1", cmake)
 
     def test_eeprom_requires_non_zero_geometry_when_enabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

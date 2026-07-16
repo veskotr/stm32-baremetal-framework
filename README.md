@@ -13,7 +13,7 @@ Current version: see [`version.txt`](./version.txt).
 - automatic board metadata generation from CubeMX output
 - one ARM GCC toolchain file for STM32 bare-metal builds
 - generated board roles such as status LED, console UART, Modbus UART/timer, RS-485 DE, and sensor SPI
-- HAL helpers for platform init, GPIO, EXTI dispatch, UART, console stdio, SPI, timers, status LED, time delay, and flash-backed EEPROM emulation
+- HAL helpers for platform init, GPIO, EXTI dispatch, UART, console stdio, SPI, timers, watchdogs, status LED, time delay, and flash-backed EEPROM emulation
 - optional FreeModbus integration and a native MAX31865 driver
 - example boards and firmware projects under [`examples/`](./examples/)
 

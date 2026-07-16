@@ -11,5 +11,6 @@
 #include "hss_platform.h"
 #include "hss_status_led.h"
 #include "hss_time.h"
+#include "hss_watchdog.h"
 #include "hss_timer.h"
 #include "hss_uart.h"
