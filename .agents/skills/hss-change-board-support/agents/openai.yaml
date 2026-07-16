@@ -1,0 +1,4 @@
+interface:
+  display_name: "Change HSS Board Support"
+  short_description: "Safely update CubeMX-backed board integration"
+  default_prompt: "Use $hss-change-board-support to add or modify an HSS board capability."

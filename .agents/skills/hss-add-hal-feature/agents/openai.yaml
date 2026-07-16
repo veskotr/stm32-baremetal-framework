@@ -1,0 +1,4 @@
+interface:
+  display_name: "Add HSS HAL Feature"
+  short_description: "Implement a thin, tested STM32 HAL helper"
+  default_prompt: "Use $hss-add-hal-feature to add a reusable HAL-facing feature to HSS."

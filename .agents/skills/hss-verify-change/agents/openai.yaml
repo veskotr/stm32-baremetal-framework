@@ -1,0 +1,4 @@
+interface:
+  display_name: "Verify an HSS Change"
+  short_description: "Run the right host, tooling, and ARM checks"
+  default_prompt: "Use $hss-verify-change to verify this HSS framework change."
