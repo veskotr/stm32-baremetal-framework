@@ -77,3 +77,7 @@ Current synced boards:
 - `examples/boards/stm32g071kb_temp_transmitter`
 
 After regenerating either board in CubeMX, rerun the sync command for that board and rebuild the matching example.
+
+The Python test lane copies both reference boards to temporary directories,
+runs sync twice for each, and verifies that the generator-owned manifest,
+capability header, and glue source are byte-identical after the second run.
