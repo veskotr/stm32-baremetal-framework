@@ -69,10 +69,13 @@ bool hss_modbus_uart_uses_hardware_rs485_de(void)
 
 hss_result_t hss_modbus_uart_configure(uint32_t baudrate,
                                        uint8_t data_bits,
-                                       hss_modbus_uart_parity_t parity)
+                                       hss_modbus_uart_parity_t parity,
+                                       hss_modbus_uart_stop_bits_t stop_bits)
 {
 #if HSS_BOARD_HAS_MODBUS_UART
-    if (baudrate == 0U || data_bits < 7U || data_bits > 9U)
+    if (baudrate == 0U || data_bits < 7U || data_bits > 9U ||
+        (stop_bits != HSS_MODBUS_UART_STOP_BITS_1 &&
+         stop_bits != HSS_MODBUS_UART_STOP_BITS_2))
     {
         return HSS_INVALID_ARGUMENT;
     }
@@ -87,7 +90,9 @@ hss_result_t hss_modbus_uart_configure(uint32_t baudrate,
 
     uart->Init.BaudRate = baudrate;
     uart->Init.WordLength = (parity == HSS_MODBUS_UART_PARITY_NONE) ? UART_WORDLENGTH_8B : UART_WORDLENGTH_9B;
-    uart->Init.StopBits = UART_STOPBITS_1;
+    uart->Init.StopBits = (stop_bits == HSS_MODBUS_UART_STOP_BITS_2) ?
+                              UART_STOPBITS_2 :
+                              UART_STOPBITS_1;
     uart->Init.Mode = UART_MODE_TX_RX;
     uart->Init.HwFlowCtl = UART_HWCONTROL_NONE;
     uart->Init.OverSampling = UART_OVERSAMPLING_16;
@@ -114,6 +119,7 @@ hss_result_t hss_modbus_uart_configure(uint32_t baudrate,
     (void)baudrate;
     (void)data_bits;
     (void)parity;
+    (void)stop_bits;
     return HSS_NOT_SUPPORTED;
 #endif
 }

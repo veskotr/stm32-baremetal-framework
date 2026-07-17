@@ -176,7 +176,7 @@ or with the compatibility CMake option:
 
 The target fetches upstream FreeModbus `1.6.0` with CMake `FetchContent`, builds the upstream RTU/ASCII/function sources, and provides the STM32/HSS port files under `protocols/freemodbus/src/`.
 
-The HSS-facing Modbus API lives in `protocols/freemodbus/include/hss_modbus.h`. It wraps FreeModbus with `hss_result_t` return values, app-owned holding/input register banks, `hss_modbus_init()`, `hss_modbus_enable()`, `hss_modbus_disable()`, `hss_modbus_poll()`, and single-register get/set helpers. Coil and discrete callbacks currently return `MB_ENOREG`; add those APIs only when an application needs them.
+The HSS-facing Modbus API lives in `protocols/freemodbus/include/hss_modbus.h`. It wraps FreeModbus with `hss_result_t` return values, app-owned holding/input register banks, `hss_modbus_init()`, `hss_modbus_enable()`, `hss_modbus_disable()`, `hss_modbus_poll()`, and single-register get/set helpers. `hss_modbus_config_t` selects one or two UART stop bits and defaults to one stop bit. Coil and discrete callbacks currently return `MB_ENOREG`; add those APIs only when an application needs them.
 
 Current FreeModbus focus is Blue Pill. The Blue Pill role setup maps `USART1` as Modbus UART and `TIM2` as Modbus timer. The Blue Pill minimal example enables FreeModbus by default in its local `CMakeLists.txt`. `examples/blue_pill_modbus_slave` is the first API-level Modbus slave example and exposes simple holding/input register arrays. Direct-UART RTU holding-register read/write has been validated on Blue Pill USART1 at 9600 8N1 with an ESP32 master.
 

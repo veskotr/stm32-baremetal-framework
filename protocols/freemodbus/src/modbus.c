@@ -1,4 +1,5 @@
 #include "hss_modbus.h"
+#include "modbus_internal.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -155,6 +156,7 @@ hss_modbus_config_t hss_modbus_default_config(uint8_t slave_id, uint32_t baudrat
         .baudrate = baudrate,
         .mode = HSS_MODBUS_MODE_RTU,
         .parity = HSS_MODBUS_PARITY_NONE,
+        .stop_bits = HSS_MODBUS_STOP_BITS_1,
         .holding_registers = {0},
         .input_registers = {0},
     };
@@ -164,7 +166,9 @@ hss_modbus_config_t hss_modbus_default_config(uint8_t slave_id, uint32_t baudrat
 
 hss_result_t hss_modbus_init(const hss_modbus_config_t *config)
 {
-    if (config == NULL || config->slave_id == 0U || config->slave_id > 247U || config->baudrate == 0U)
+    if (config == NULL || config->slave_id == 0U || config->slave_id > 247U || config->baudrate == 0U ||
+        (config->stop_bits != HSS_MODBUS_STOP_BITS_1 &&
+         config->stop_bits != HSS_MODBUS_STOP_BITS_2))
     {
         return HSS_INVALID_ARGUMENT;
     }
@@ -190,6 +194,11 @@ hss_result_t hss_modbus_init(const hss_modbus_config_t *config)
 
     g_modbus_initialized = true;
     return HSS_OK;
+}
+
+hss_modbus_stop_bits_t hss_modbus_active_stop_bits(void)
+{
+    return g_modbus_config.stop_bits;
 }
 
 hss_result_t hss_modbus_enable(void)

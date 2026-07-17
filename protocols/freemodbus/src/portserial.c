@@ -2,6 +2,7 @@
 
 #include "hss_modbus_uart.h"
 #include "mb.h"
+#include "modbus_internal.h"
 
 static void hss_freemodbus_rx_callback(void *context)
 {
@@ -29,6 +30,13 @@ static hss_modbus_uart_parity_t hss_freemodbus_uart_parity(eMBParity parity)
     }
 }
 
+static hss_modbus_uart_stop_bits_t hss_freemodbus_uart_stop_bits(void)
+{
+    return hss_modbus_active_stop_bits() == HSS_MODBUS_STOP_BITS_2 ?
+               HSS_MODBUS_UART_STOP_BITS_2 :
+               HSS_MODBUS_UART_STOP_BITS_1;
+}
+
 BOOL xMBPortSerialInit(UCHAR port, ULONG baud, UCHAR data_bits, eMBParity parity)
 {
     (void)port;
@@ -40,7 +48,8 @@ BOOL xMBPortSerialInit(UCHAR port, ULONG baud, UCHAR data_bits, eMBParity parity
 
     if (hss_modbus_uart_configure((uint32_t)baud,
                                   (uint8_t)data_bits,
-                                  hss_freemodbus_uart_parity(parity)) != HSS_OK)
+                                  hss_freemodbus_uart_parity(parity),
+                                  hss_freemodbus_uart_stop_bits()) != HSS_OK)
     {
         return FALSE;
     }

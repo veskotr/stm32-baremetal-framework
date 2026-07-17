@@ -21,6 +21,12 @@ typedef enum
     HSS_MODBUS_PARITY_EVEN = 2,
 } hss_modbus_parity_t;
 
+typedef enum
+{
+    HSS_MODBUS_STOP_BITS_1 = 1,
+    HSS_MODBUS_STOP_BITS_2 = 2,
+} hss_modbus_stop_bits_t;
+
 typedef struct
 {
     uint16_t start_address;
@@ -34,6 +40,7 @@ typedef struct
     uint32_t baudrate;
     hss_modbus_mode_t mode;
     hss_modbus_parity_t parity;
+    hss_modbus_stop_bits_t stop_bits;
     hss_modbus_register_bank_t holding_registers;
     hss_modbus_register_bank_t input_registers;
 } hss_modbus_config_t;

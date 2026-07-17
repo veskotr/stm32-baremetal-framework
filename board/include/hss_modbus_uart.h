@@ -18,6 +18,12 @@ typedef enum
     HSS_MODBUS_UART_PARITY_EVEN = 2,
 } hss_modbus_uart_parity_t;
 
+typedef enum
+{
+    HSS_MODBUS_UART_STOP_BITS_1 = 1,
+    HSS_MODBUS_UART_STOP_BITS_2 = 2,
+} hss_modbus_uart_stop_bits_t;
+
 #if HSS_ENABLE_MODBUS_DEBUG
 extern volatile uint32_t hss_modbus_uart_debug_rx_count;
 extern volatile uint32_t hss_modbus_uart_debug_tx_count;
@@ -28,7 +34,8 @@ bool hss_modbus_uart_uses_manual_rs485_de(void);
 bool hss_modbus_uart_uses_hardware_rs485_de(void);
 hss_result_t hss_modbus_uart_configure(uint32_t baudrate,
                                        uint8_t data_bits,
-                                       hss_modbus_uart_parity_t parity);
+                                       hss_modbus_uart_parity_t parity,
+                                       hss_modbus_uart_stop_bits_t stop_bits);
 hss_result_t hss_modbus_uart_write(const uint8_t *data, uint16_t length, uint32_t timeout_ms);
 hss_result_t hss_modbus_uart_read(uint8_t *data, uint16_t length, uint32_t timeout_ms);
 hss_result_t hss_modbus_uart_write_byte(uint8_t byte, uint32_t timeout_ms);
