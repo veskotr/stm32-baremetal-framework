@@ -3,6 +3,14 @@ hss_add_host_test(hss_result_tests
         unit/test_hss_result.c
 )
 
+hss_add_host_test(hss_modbus_codec_tests
+        SOURCES
+        unit/test_hss_modbus_codec.c
+        ${HSS_FRAMEWORK_ROOT}/protocols/freemodbus/src/modbus_codec.c
+        INCLUDE_DIRS
+        ${HSS_FRAMEWORK_ROOT}/protocols/freemodbus/include
+)
+
 hss_add_host_integration_test(hss_gpio_host_tests
         SOURCES
         integration/test_hss_gpio_host.c

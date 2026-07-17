@@ -15,6 +15,7 @@ FetchContent_MakeAvailable(hss_freemodbus_upstream)
 
 add_library(hss_freemodbus STATIC
         src/modbus.c
+        src/modbus_codec.c
         src/portcritical.c
         src/portevent.c
         src/portserial.c
