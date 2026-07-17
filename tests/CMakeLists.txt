@@ -29,18 +29,19 @@ hss_add_host_integration_test(hss_watchdog_host_tests
         integration/test_hss_watchdog_host.c
         LIBRARIES
         hss_hal_host
+        hss_board_host_watchdog_none
 )
 
 hss_add_host_integration_test(hss_watchdog_iwdg_role_host_tests
         SOURCES
         integration/test_hss_watchdog_iwdg_role_host.c
         LIBRARIES
-        hss_hal_host_watchdog_iwdg
+        hss_board_host_watchdog_iwdg
 )
 
 hss_add_host_integration_test(hss_watchdog_wwdg_role_host_tests
         SOURCES
         integration/test_hss_watchdog_wwdg_role_host.c
         LIBRARIES
-        hss_hal_host_watchdog_wwdg
+        hss_board_host_watchdog_wwdg
 )

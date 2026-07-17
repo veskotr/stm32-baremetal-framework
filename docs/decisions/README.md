@@ -16,6 +16,7 @@ Decision records capture durable choices that future changes must understand. Th
 | [0001](0001-record-framework-baseline.md) | Record the existing framework baseline | Accepted |
 | [0002](0002-add-watchdog-helper-and-board-role.md) | Add watchdog helper and board role | Accepted |
 | [0003](0003-separate-framework-components-and-products.md) | Separate framework, components, and products | Accepted |
+| [0004](0004-split-explicit-hal-and-board-conveniences.md) | Split explicit HAL and board conveniences | Accepted |
 
 ## Process
 

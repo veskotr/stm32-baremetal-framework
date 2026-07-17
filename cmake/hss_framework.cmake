@@ -837,6 +837,25 @@ function(hss_register_board BOARD_NAME)
             -fdata-sections
     )
 
+    target_include_directories(hss_framework_stm32 INTERFACE
+            "${BOARD_GENERATED_INCLUDE_DIR}"
+            "${BOARD_CORE_INCLUDE_DIR}"
+            "${BOARD_HAL_DRIVER_DIR}/Inc"
+            "${BOARD_HAL_DRIVER_DIR}/Inc/Legacy"
+            "${BOARD_CMSIS_DEVICE_DIR}"
+            "${BOARD_CMSIS_CORE_DIR}"
+    )
+    target_compile_definitions(hss_framework_stm32 INTERFACE
+            USE_HAL_DRIVER
+            "HSS_BOARD_MCU_FAMILY_${BOARD_MCU_FAMILY_UPPER}"
+            ${BOARD_MCU_DEFINE}
+    )
+    target_compile_options(hss_framework_stm32 INTERFACE
+            ${BOARD_CPU_FLAGS}
+            -ffunction-sections
+            -fdata-sections
+    )
+
     set_target_properties("${BOARD_TARGET}" PROPERTIES
             HSS_BOARD_NAME "${BOARD_NAME}"
             HSS_BOARD_DIR "${BOARD_DIR}"
@@ -895,6 +914,7 @@ function(hss_add_firmware TARGET_NAME)
 
     set(HSS_TARGET_CONFIG_INCLUDE_DIR "")
     set(HSS_TARGET_CONFIG_COMPILE_DEFINITIONS "")
+    set(HSS_TARGET_FRAMEWORK_LIBRARIES "")
     if (ARG_CONFIG)
         set(ACTIVE_CONFIG_PROFILES ${ARG_PROFILES})
         if (NOT ACTIVE_CONFIG_PROFILES)
@@ -912,6 +932,7 @@ function(hss_add_firmware TARGET_NAME)
                 "${TARGET_NAME}"
                 "${ARG_CONFIG}"
                 HSS_TARGET_CONFIG_INCLUDE_DIR
+                HSS_TARGET_FRAMEWORK_LIBRARIES
                 PROFILES ${ACTIVE_CONFIG_PROFILES}
                 OPTIONAL_PROFILES ${ACTIVE_OPTIONAL_CONFIG_PROFILES}
                 PROFILE_FILES ${ACTIVE_CONFIG_PROFILE_FILES}
@@ -948,8 +969,9 @@ function(hss_add_firmware TARGET_NAME)
     )
 
     target_link_libraries("${TARGET_NAME}" PRIVATE
-            hss_framework
+            hss_board
             "${HSS_ACTIVE_BOARD_TARGET}"
+            ${HSS_TARGET_FRAMEWORK_LIBRARIES}
     )
 
     get_target_property(HSS_CPU_FLAGS "${HSS_ACTIVE_BOARD_TARGET}" HSS_CPU_FLAGS)

@@ -1,5 +1,6 @@
 #include "hss_config.h"
 #include "hss_hal.h"
+#include "hss_board.h"
 #include "main.h"
 
 static uint16_t app_load_boot_count(void)

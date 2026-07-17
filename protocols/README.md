@@ -1,10 +1,8 @@
 # Protocols
 
-Reusable protocol integrations will live here.
-
-This folder currently exposes the placeholder `hss_protocols` CMake target so protocol integrations can be added without changing the public framework target surface.
+Reusable protocol integrations live here. Each protocol is an opt-in, named
+CMake target with explicit dependencies.
 
 Planned initial protocol integration:
 
 - FreeModbus STM32 port
-

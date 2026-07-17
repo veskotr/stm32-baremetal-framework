@@ -44,7 +44,7 @@ target_include_directories(hss_freemodbus PUBLIC
 
 target_link_libraries(hss_freemodbus PUBLIC
         hss_common
-        hss_hal
+        hss_board
 )
 
 if(HSS_ENABLE_MODBUS_DEBUG)

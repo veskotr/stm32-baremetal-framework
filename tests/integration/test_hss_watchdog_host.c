@@ -1,6 +1,7 @@
 #include "unity.h"
 
 #include "hss_host_stm32_fakes.h"
+#include "hss_board_watchdog.h"
 #include "hss_watchdog.h"
 
 static void watchdog_rejects_invalid_arguments(void)

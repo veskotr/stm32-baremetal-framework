@@ -31,6 +31,8 @@ Add:
 ```text
 hal/include/hss_watchdog.h
 hal/src/watchdog.c
+board/include/hss_board_watchdog.h
+board/src/watchdog.c
 ```
 
 Proposed header:
@@ -56,14 +58,19 @@ hss_result_t hss_iwdg_refresh(IWDG_HandleTypeDef *watchdog);
 
 hss_result_t hss_wwdg_init(WWDG_HandleTypeDef *watchdog);
 hss_result_t hss_wwdg_refresh(WWDG_HandleTypeDef *watchdog);
-
-bool hss_watchdog_is_available(void);
-hss_result_t hss_watchdog_init(void);
-hss_result_t hss_watchdog_refresh(void);
 ```
 
 Low-level functions accept HAL handles directly, matching helpers such as
 `hss_timer_*()` and `hss_spi_*()`.
+
+The board-level declarations live in `hss_board_watchdog.h`, which is included
+by the `hss_board.h` umbrella rather than `hss_hal.h`.
+
+```c
+bool hss_watchdog_is_available(void);
+hss_result_t hss_watchdog_init(void);
+hss_result_t hss_watchdog_refresh(void);
+```
 
 Board-level functions use generated board role macros and represent the primary
 application watchdog for the firmware target.
@@ -185,9 +192,9 @@ Update `hal/CMakeLists.txt`:
 
 - Add `src/watchdog.c`.
 
-Update `hal/include/hss_hal.h`:
+Update `board/CMakeLists.txt`:
 
-- Include `hss_watchdog.h`.
+- Add `src/watchdog.c`.
 
 Update board role generation:
 
@@ -242,7 +249,7 @@ require it.
 Example:
 
 ```c
-#include "hss_hal.h"
+#include "hss_board.h"
 
 int main(void)
 {

@@ -31,7 +31,7 @@ include(FetchContent)
 FetchContent_Declare(
         hss_framework
         GIT_REPOSITORY https://github.com/veskotr/stm32-baremetal-framework.git
-        GIT_TAG v0.6.0
+        GIT_TAG v0.7.0
 )
 FetchContent_MakeAvailable(hss_framework)
 
@@ -42,6 +42,13 @@ hss_add_firmware(my_app
         src/main.c
 )
 ```
+
+`hss_add_firmware()` links `hss_board`, which in turn links the selected board
+and the explicit-handle `hss_hal` layer. Optional integrations selected through
+`HSS_ENABLE_*` config values are linked directly to that firmware target.
+Reusable components should link only the narrowest target they use:
+`hss_common`, `hss_hal`, `hss_board`, `hss_max31865`, or `hss_freemodbus`.
+There is no aggregate framework, driver, or protocol target.
 
 Submodule/copied dependency fallback:
 
@@ -108,7 +115,7 @@ include(FetchContent)
 FetchContent_Declare(
         hss_framework
         GIT_REPOSITORY https://github.com/veskotr/stm32-baremetal-framework.git
-        GIT_TAG v0.6.0
+        GIT_TAG v0.7.0
 )
 FetchContent_MakeAvailable(hss_framework)
 
@@ -241,7 +248,7 @@ Firmware can then persist small `uint16_t` values or register banks through the
 HAL wrapper:
 
 ```c
-#include "hss_hal.h"
+#include "hss_board.h"
 
 static uint16_t holding_registers[16];
 

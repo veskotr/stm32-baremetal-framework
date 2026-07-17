@@ -5,31 +5,27 @@
 It follows the register behavior of the Analog Devices no-OS MAX31865 driver used by the v1 framework, but uses HSS HAL helpers directly:
 
 - `hss_spi_device_t`
-- `hss_sensor_spi_get_device()`
 - `hss_delay_ms()`
 - `hss_result_t`
 
-The easiest board setup is:
-
-```cmake
-set(BOARD_ROLE_SENSOR_SPI SPI1)
-set(BOARD_ROLE_SENSOR_CS PA4)
-set(BOARD_ROLE_SENSOR_CS_ACTIVE_LOW ON)
-```
-
-If `BOARD_ROLE_SENSOR_CS` is not configured, the driver still builds and uses the SPI role with no software chip-select handling. That can work when hardware NSS or application-owned chip-select control is used.
+The driver requires an explicit SPI device descriptor. A product that uses the
+generic sensor-SPI board role can obtain that descriptor through `hss_board`;
+other products can construct it from their own SPI handle and chip-select GPIO.
 
 Minimal use:
 
 ```c
+#include "hss_board.h"
 #include "hss_max31865.h"
 
 hss_max31865_t rtd;
 hss_max31865_config_t config = hss_max31865_default_config();
+hss_spi_device_t spi_device;
 config.three_wire = true;
 config.filter_50hz = true;
 
-if (hss_max31865_init(&rtd, &config) == HSS_OK) {
+if (hss_sensor_spi_get_device(&spi_device) == HSS_OK &&
+    hss_max31865_init_with_spi(&rtd, &spi_device, &config) == HSS_OK) {
     uint16_t raw;
     float resistance;
 

@@ -1,4 +1,5 @@
 #include "hss_hal.h"
+#include "hss_board.h"
 #include "main.h"
 #include <stdio.h>
 

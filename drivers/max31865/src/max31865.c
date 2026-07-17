@@ -2,7 +2,6 @@
 
 #include <stddef.h>
 
-#include "hss_sensor_spi.h"
 #include "hss_time.h"
 
 #define MAX31865_READ_MASK 0x7FU
@@ -90,19 +89,6 @@ hss_max31865_config_t hss_max31865_default_config(void)
     };
 
     return config;
-}
-
-hss_result_t hss_max31865_init(hss_max31865_t *device,
-                               const hss_max31865_config_t *config)
-{
-    hss_spi_device_t spi_device;
-    hss_result_t result = hss_sensor_spi_get_device(&spi_device);
-    if (result != HSS_OK)
-    {
-        return result;
-    }
-
-    return hss_max31865_init_with_spi(device, &spi_device, config);
 }
 
 hss_result_t hss_max31865_init_with_spi(hss_max31865_t *device,

@@ -38,8 +38,6 @@ typedef struct
 } hss_max31865_t;
 
 hss_max31865_config_t hss_max31865_default_config(void);
-hss_result_t hss_max31865_init(hss_max31865_t *device,
-                               const hss_max31865_config_t *config);
 hss_result_t hss_max31865_init_with_spi(hss_max31865_t *device,
                                         const hss_spi_device_t *spi_device,
                                         const hss_max31865_config_t *config);

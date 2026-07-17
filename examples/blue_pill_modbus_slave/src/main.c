@@ -1,4 +1,5 @@
 #include "hss_hal.h"
+#include "hss_board.h"
 #include "hss_modbus.h"
 #include "main.h"
 

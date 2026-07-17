@@ -22,20 +22,13 @@ option(HSS_BUILD_FRAMEWORK_TESTS "Build HSS framework self-tests when tests are 
 include("${HSS_FRAMEWORK_ROOT}/cmake/hss_framework.cmake")
 
 add_library(hss_framework_board INTERFACE)
+add_library(hss_framework_stm32 INTERFACE)
 
 add_subdirectory(common)
 add_subdirectory(hal)
+add_subdirectory(board)
 add_subdirectory(drivers)
 add_subdirectory(protocols)
-
-add_library(hss_framework INTERFACE)
-target_compile_features(hss_framework INTERFACE c_std_11)
-target_link_libraries(hss_framework INTERFACE
-        hss_common
-        hss_hal
-        hss_drivers
-        hss_protocols
-)
 
 if(HSS_ENABLE_TESTS)
     include("${HSS_FRAMEWORK_ROOT}/cmake/hss_testing.cmake")

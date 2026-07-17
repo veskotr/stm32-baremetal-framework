@@ -65,9 +65,10 @@ The intended layering is:
 
 1. CubeMX board output
 2. board integration files
-3. HAL helper layer
-4. reusable protocol and driver integration layers
-5. application code
+3. explicit HAL helper layer
+4. board convenience layer
+5. reusable protocol and driver integration layers
+6. application code
 
 ### 1. CubeMX board output
 
@@ -102,7 +103,7 @@ Examples of semantic roles:
 - chip-select pin
 - status LED
 
-### 3. HAL helper layer
+### 3. Explicit HAL helper layer
 
 This layer provides thin helpers around repeated HAL usage.
 
@@ -114,7 +115,22 @@ It should stay simple and direct. It is acceptable for it to expose or consume H
 
 The point of this layer is consistency and reuse, not total abstraction.
 
-### 4. Reusable protocol and driver integration layers
+`hss_hal` contains only helpers that operate on explicit STM32 HAL handles or
+small descriptors. It receives STM32 HAL headers from the selected board but
+does not consume generated board roles or board glue.
+
+### 4. Board convenience layer
+
+`hss_board` owns framework startup and optional helpers backed by generated
+`hss_board_roles.h` metadata. It is the only framework layer that links the
+selected board's generated glue and object sources.
+
+Examples include console, status LED, Modbus transport, sensor SPI, watchdog,
+and EEPROM convenience APIs. Applications can use these helpers directly;
+reusable components should prefer `hss_common` or `hss_hal` and accept explicit
+handles, descriptors, or callbacks from the product.
+
+### 5. Reusable protocol and driver integration layers
 
 This layer contains reusable integrations such as:
 - FreeModbus STM32 port
@@ -123,7 +139,7 @@ This layer contains reusable integrations such as:
 
 These integrations should rely on framework-owned board metadata and helpers rather than per-project handwritten boilerplate.
 
-### 5. Application code
+### 6. Application code
 
 Application code should focus on:
 - product behavior

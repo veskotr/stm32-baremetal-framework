@@ -44,7 +44,7 @@ Current completed work:
 - added the v0.6.0 flash-backed persistence work: `HSS_ENABLE_EEPROM_EMULATION`, EEPROM geometry config, linker reservation generation, STM32F1/G0 backend support, config validation, and the new persistence demo example
 - added FetchContent-first external-project documentation and GitHub Actions CI lanes for Python tests, host C tests, and firmware build checks
 
-`0.1.0` should be treated as the first scaffold baseline. `0.2.0` is the HAL-helper and developer-workflow milestone. `0.2.1` is the Modbus/CubeMX generated-glue bugfix patch after first hardware validation. `0.3.0` is the repository cleanup release that promotes the framework to the root and moves the temp transmitter pilot into its own project. `0.4.0` is the project config system release. `0.5.0` is the test/CI scaffold and generic board-capability release. `0.6.0` is the EEPROM emulation and flash-backed persistence release.
+`0.1.0` should be treated as the first scaffold baseline. `0.2.0` is the HAL-helper and developer-workflow milestone. `0.2.1` is the Modbus/CubeMX generated-glue bugfix patch after first hardware validation. `0.3.0` is the repository cleanup release that promotes the framework to the root and moves the temp transmitter pilot into its own project. `0.4.0` is the project config system release. `0.5.0` is the test/CI scaffold and generic board-capability release. `0.6.0` is the EEPROM emulation and flash-backed persistence release. `0.7.0` is the breaking target-boundary release: explicit `hss_hal`, board conveniences in `hss_board`, and opt-in drivers and protocols.
 
 ## Confirmed Design Decisions
 
@@ -366,10 +366,10 @@ provides reusable behavior; products own boards, configuration, and composition.
 Technical-debt priority:
 
 1. Define and document stable granular CMake dependencies for `hss_common`,
-   `hss_hal`, each driver, and each protocol. Keep `hss_framework` only as a
-   convenience umbrella target.
+   `hss_hal`, `hss_board`, each driver, and each protocol. Done: aggregate
+   framework, driver, and protocol targets were removed.
 2. Make optional drivers and protocols opt-in by default unless a dependency is
-   fundamental to every HSS application.
+   fundamental to every HSS application. Done for MAX31865 and FreeModbus.
 3. Create a small external component-repository proof project that consumes HSS
    through `FetchContent`, links only narrow targets, and runs host tests.
 4. Prefer component APIs that accept explicit handles, descriptors, or callbacks

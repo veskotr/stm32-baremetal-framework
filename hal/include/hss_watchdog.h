@@ -18,7 +18,3 @@ hss_result_t hss_iwdg_refresh(IWDG_HandleTypeDef *watchdog);
 
 hss_result_t hss_wwdg_init(WWDG_HandleTypeDef *watchdog);
 hss_result_t hss_wwdg_refresh(WWDG_HandleTypeDef *watchdog);
-
-bool hss_watchdog_is_available(void);
-hss_result_t hss_watchdog_init(void);
-hss_result_t hss_watchdog_refresh(void);

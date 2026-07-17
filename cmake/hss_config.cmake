@@ -1,29 +1,30 @@
 include_guard(GLOBAL)
 
-function(hss_enable_freemodbus)
+function(hss_enable_freemodbus OUT_TARGET)
     if (TARGET hss_freemodbus)
+        set(${OUT_TARGET} hss_freemodbus PARENT_SCOPE)
         return()
     endif()
     add_subdirectory(
             "${HSS_FRAMEWORK_ROOT}/protocols/freemodbus"
             "${CMAKE_BINARY_DIR}/hss_generated/protocols/freemodbus"
     )
-    target_link_libraries(hss_protocols INTERFACE hss_freemodbus)
+    set(${OUT_TARGET} hss_freemodbus PARENT_SCOPE)
 endfunction()
 
-function(hss_enable_max31865)
+function(hss_enable_max31865 OUT_TARGET)
     if (TARGET hss_max31865)
-        target_link_libraries(hss_drivers INTERFACE hss_max31865)
+        set(${OUT_TARGET} hss_max31865 PARENT_SCOPE)
         return()
     endif()
     add_subdirectory(
             "${HSS_FRAMEWORK_ROOT}/drivers/max31865"
             "${CMAKE_BINARY_DIR}/hss_generated/drivers/max31865"
     )
-    target_link_libraries(hss_drivers INTERFACE hss_max31865)
+    set(${OUT_TARGET} hss_max31865 PARENT_SCOPE)
 endfunction()
 
-function(hss_generate_target_config TARGET_NAME CONFIG_FILE OUT_INCLUDE_DIR)
+function(hss_generate_target_config TARGET_NAME CONFIG_FILE OUT_INCLUDE_DIR OUT_FRAMEWORK_LIBRARIES)
     cmake_parse_arguments(ARG "" "" "PROFILES;OPTIONAL_PROFILES;PROFILE_FILES" ${ARGN})
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
@@ -71,22 +72,25 @@ function(hss_generate_target_config TARGET_NAME CONFIG_FILE OUT_INCLUDE_DIR)
 
     include("${CONFIG_OUTPUT_DIR}/hss_config.cmake")
 
+    set(HSS_TARGET_FRAMEWORK_LIBRARIES "")
     if (DEFINED HSS_CONFIG_VALUE_HSS_ENABLE_FREEMODBUS
             AND HSS_CONFIG_VALUE_HSS_ENABLE_FREEMODBUS)
-        hss_enable_freemodbus()
+        hss_enable_freemodbus(HSS_FREEMODBUS_TARGET)
+        list(APPEND HSS_TARGET_FRAMEWORK_LIBRARIES ${HSS_FREEMODBUS_TARGET})
     endif()
     if (DEFINED HSS_CONFIG_VALUE_HSS_ENABLE_MAX31865
             AND HSS_CONFIG_VALUE_HSS_ENABLE_MAX31865)
-        hss_enable_max31865()
+        hss_enable_max31865(HSS_MAX31865_TARGET)
+        list(APPEND HSS_TARGET_FRAMEWORK_LIBRARIES ${HSS_MAX31865_TARGET})
     endif()
 
     if (HSS_CONFIG_FRAMEWORK_COMPILE_DEFINITIONS)
-        if (TARGET hss_hal)
-            target_compile_definitions(hss_hal PUBLIC ${HSS_CONFIG_FRAMEWORK_COMPILE_DEFINITIONS})
+        if (TARGET hss_board)
+            target_compile_definitions(hss_board PUBLIC ${HSS_CONFIG_FRAMEWORK_COMPILE_DEFINITIONS})
         endif()
-        if (TARGET hss_freemodbus)
-            target_compile_definitions(hss_freemodbus PUBLIC ${HSS_CONFIG_FRAMEWORK_COMPILE_DEFINITIONS})
-        endif()
+        foreach(HSS_FRAMEWORK_LIBRARY IN LISTS HSS_TARGET_FRAMEWORK_LIBRARIES)
+            target_compile_definitions(${HSS_FRAMEWORK_LIBRARY} PUBLIC ${HSS_CONFIG_FRAMEWORK_COMPILE_DEFINITIONS})
+        endforeach()
     endif()
 
     get_cmake_property(HSS_CONFIG_VARIABLES VARIABLES)
@@ -97,6 +101,7 @@ function(hss_generate_target_config TARGET_NAME CONFIG_FILE OUT_INCLUDE_DIR)
     endforeach()
 
     set(${OUT_INCLUDE_DIR} "${CONFIG_OUTPUT_DIR}" PARENT_SCOPE)
+    set(${OUT_FRAMEWORK_LIBRARIES} "${HSS_TARGET_FRAMEWORK_LIBRARIES}" PARENT_SCOPE)
     set(HSS_CONFIG_COMPILE_DEFINITIONS "${HSS_CONFIG_COMPILE_DEFINITIONS}" PARENT_SCOPE)
     set(HSS_CONFIG_ACTIVE_PROFILES "${HSS_CONFIG_ACTIVE_PROFILES}" PARENT_SCOPE)
 endfunction()

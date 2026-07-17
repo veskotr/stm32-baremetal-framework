@@ -36,27 +36,32 @@ target_compile_features(hss_hal_host PUBLIC c_std_11)
 
 function(hss_add_host_watchdog_role_library TARGET_NAME ROLE_INCLUDE_DIR)
     add_library("${TARGET_NAME}" STATIC
-            ${HSS_FRAMEWORK_ROOT}/hal/src/watchdog.c
+            ${HSS_FRAMEWORK_ROOT}/board/src/watchdog.c
     )
     target_include_directories("${TARGET_NAME}" PUBLIC
             "${ROLE_INCLUDE_DIR}"
             ${HSS_FRAMEWORK_ROOT}/hal/include
+            ${HSS_FRAMEWORK_ROOT}/board/include
             ${HSS_FRAMEWORK_ROOT}/tests/support/host_stm32_fakes
     )
     target_link_libraries("${TARGET_NAME}" PUBLIC
-            hss_common
-            hss_host_stm32_fakes
+            hss_hal_host
     )
     target_compile_features("${TARGET_NAME}" PUBLIC c_std_11)
 endfunction()
 
 hss_add_host_watchdog_role_library(
-        hss_hal_host_watchdog_iwdg
+        hss_board_host_watchdog_none
+        ${HSS_FRAMEWORK_ROOT}/tests/support/host_stm32_fakes
+)
+
+hss_add_host_watchdog_role_library(
+        hss_board_host_watchdog_iwdg
         ${HSS_FRAMEWORK_ROOT}/tests/support/host_stm32_fakes/iwdg_board_roles
 )
 
 hss_add_host_watchdog_role_library(
-        hss_hal_host_watchdog_wwdg
+        hss_board_host_watchdog_wwdg
         ${HSS_FRAMEWORK_ROOT}/tests/support/host_stm32_fakes/wwdg_board_roles
 )
 

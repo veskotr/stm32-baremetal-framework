@@ -13,7 +13,8 @@ Current version: see [`version.txt`](./version.txt).
 - automatic board metadata generation from CubeMX output
 - one ARM GCC toolchain file for STM32 bare-metal builds
 - generated board roles such as status LED, console UART, Modbus UART/timer, RS-485 DE, and sensor SPI
-- HAL helpers for platform init, GPIO, EXTI dispatch, UART, console stdio, SPI, timers, watchdogs, status LED, time delay, and flash-backed EEPROM emulation
+- explicit-handle HAL helpers for GPIO, EXTI dispatch, UART, SPI, timers, watchdogs, IRQs, and delay/time
+- board conveniences for platform startup, console stdio, status LED, Modbus transport roles, sensor SPI roles, watchdog roles, and flash-backed EEPROM emulation
 - optional FreeModbus integration and a native MAX31865 driver
 - example boards and firmware projects under [`examples/`](./examples/)
 
@@ -56,7 +57,7 @@ include(FetchContent)
 FetchContent_Declare(
         hss_framework
         GIT_REPOSITORY https://github.com/veskotr/stm32-baremetal-framework.git
-        GIT_TAG v0.6.0
+        GIT_TAG v0.7.0
 )
 FetchContent_MakeAvailable(hss_framework)
 
@@ -72,6 +73,7 @@ Minimal `src/main.c`:
 
 ```c
 #include "hss_hal.h"
+#include "hss_board.h"
 #include "main.h"
 
 int main(void)

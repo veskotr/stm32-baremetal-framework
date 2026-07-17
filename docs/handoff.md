@@ -6,7 +6,7 @@ This document captures the current state of `HSS STM32 framework` for future cod
 
 `HSS STM32 framework` reads its current version from `version.txt`.
 
-The current state is v0.6.0 candidate work:
+The current state is v0.7.0 work:
 
 - external/app-owned CubeMX board projects discovered through `HSS_BOARD_PATHS`
 - temporary reference board projects in `examples/boards/`
@@ -32,6 +32,8 @@ The current state is v0.6.0 candidate work:
 - native host test helpers and framework self-tests enabled by `HSS_ENABLE_TESTS=ON`
 - host fake STM32/HAL support for GPIO/SPI tests
 - GitHub Actions workflow for Python tests, host C tests, and firmware build checks
+- explicit-handle `hss_hal` and role-backed `hss_board` targets, with optional
+  driver and protocol targets linked only when a firmware configuration enables them
 
 The framework is C-first. C++ should not be required by the framework core.
 
